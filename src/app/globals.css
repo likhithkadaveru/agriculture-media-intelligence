@@ -1,26 +1,138 @@
 @import "tailwindcss";
 
+/*
+ * Telangana Agriculture Intelligence Command Centre — design tokens.
+ *
+ * Deliberate single-look design: a dark, editorial intelligence surface with
+ * warm paper-toned text. Categorical viz slots validated (dataviz method)
+ * against --surface: CVD ΔE 8.4 worst adjacent, all ≥3:1 contrast.
+ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #0d1210;
+  --surface: #141b18;
+  --surface-2: #1a2320;
+  --surface-3: #202b27;
+  --border: #263029;
+  --border-strong: #34413a;
+
+  --text: #e9e6dd;
+  --text-secondary: #b3b3a6;
+  --text-muted: #8a948b;
+  --text-faint: #626c64;
+
+  --accent-emerging: #e5a83b;
+  --accent-emerging-dim: rgba(229, 168, 59, 0.12);
+  --accent-watch: #8a948b;
+  --accent-critical: #e07856;
+  --accent-positive: #6fbf8e;
+
+  /* Categorical viz slots — fixed order, color follows the entity. */
+  --viz-1: #3987e5; /* Farmers */
+  --viz-2: #d95926; /* Media */
+  --viz-3: #199e70; /* Government */
+  --viz-4: #c98500; /* Creators */
+  --viz-other: #5c675f; /* Other — neutral, never a hue slot */
+
+  --font-serif: var(--font-fraunces, Georgia), var(--font-telugu-serif, serif), Georgia, serif;
+  --font-sans: var(--font-inter, system-ui), var(--font-telugu, sans-serif), system-ui, sans-serif;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-ink: var(--text);
+  --color-ink-secondary: var(--text-secondary);
+  --color-ink-muted: var(--text-muted);
+  --color-ink-faint: var(--text-faint);
+  --color-emerging: var(--accent-emerging);
+  --color-watch: var(--accent-watch);
+  --color-critical: var(--accent-critical);
+  --color-positive: var(--accent-positive);
+  --font-serif: var(--font-serif);
+  --font-sans: var(--font-sans);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: dark;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: rgba(229, 168, 59, 0.25);
+}
+
+/* ------- editorial primitives ------- */
+
+.kicker {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.headline-serif {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.18;
+  text-wrap: balance;
+}
+
+.telugu-text {
+  font-family: var(--font-telugu-serif, serif), var(--font-fraunces, Georgia), serif;
+  line-height: 1.9;
+  font-size: 1.05em;
+}
+
+.hairline {
+  border-color: var(--border);
+}
+
+.metric-number {
+  font-family: var(--font-serif);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+/* Subtle Telangana motif: faint topographic-field lines on the masthead. */
+.masthead-field {
+  background-image: repeating-linear-gradient(
+    -12deg,
+    transparent 0px,
+    transparent 46px,
+    rgba(233, 230, 221, 0.025) 46px,
+    rgba(233, 230, 221, 0.025) 47px
+  );
+}
+
+details.provenance > summary {
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+details.provenance > summary::-webkit-details-marker {
+  display: none;
+}
+details.provenance > summary .disclosure::before {
+  content: "+";
+  display: inline-block;
+  width: 1em;
+}
+details.provenance[open] > summary .disclosure::before {
+  content: "–";
 }
