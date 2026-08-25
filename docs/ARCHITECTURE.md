@@ -100,6 +100,13 @@ database — seeded development data can never masquerade as live intelligence.
   not hold the same data directory simultaneously for writes. In practice:
   run `npm run pipeline`, then `npm run dev`. (A real Postgres has no such
   constraint; CI/tests use in-memory instances.)
+- **Do not `rm -rf .data` while a PGlite process is running.** PGlite keeps
+  its filesystem in memory and flushes periodically, so a live dev server
+  will happily re-create the directory from its stale in-memory state,
+  resurrecting data you believed deleted. Stop the server first. (This was
+  observed in development: a deleted development corpus reappeared inside a
+  live database. Origin partitioning meant nothing mixed, but the surprise
+  is real.)
 
 ## Known Phase 1 limitations
 

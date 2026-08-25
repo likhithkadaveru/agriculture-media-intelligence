@@ -147,7 +147,9 @@ export async function runFindingStage(db: Db): Promise<FindingStageResult> {
     });
   }
 
-  // Rank and persist (regenerate active set idempotently per data origin).
+  // Rank and persist. Ranking is PER DATA ORIGIN: findings from different
+  // origins are never shown together, so a shared ranking would leave the
+  // visible set starting at an arbitrary number.
   drafts.sort((a, b) => rankScore(b.components) - rankScore(a.components));
 
   for (const origin of new Set(drafts.map((d) => d.narrative.dataOrigin))) {
@@ -162,7 +164,12 @@ export async function runFindingStage(db: Db): Promise<FindingStageResult> {
       );
   }
 
-  for (const [index, draft] of drafts.entries()) {
+  const rankByOrigin = new Map<string, number>();
+  for (const draft of drafts) {
+    const origin = draft.narrative.dataOrigin;
+    const rank = (rankByOrigin.get(origin) ?? 0) + 1;
+    rankByOrigin.set(origin, rank);
+
     const findingId = randomUUID();
     await db.insert(intelligenceFindings).values({
       id: findingId,
@@ -174,10 +181,10 @@ export async function runFindingStage(db: Db): Promise<FindingStageResult> {
       reason: draft.reason,
       components: draft.components,
       confidence: draft.confidence,
-      rank: index + 1,
+      rank,
       status: "active",
       generatedAt: new Date(),
-      dataOrigin: draft.narrative.dataOrigin,
+      dataOrigin: origin,
     });
 
     // Evidence links: every narrative mention, duplicates marked as such.
@@ -209,7 +216,7 @@ export async function runFindingStage(db: Db): Promise<FindingStageResult> {
     await recordEvent(db, "FINDING_GENERATED", {
       findingId,
       narrativeId: draft.narrative.id,
-      detail: { category: draft.category, rank: index + 1, components: draft.components },
+      detail: { category: draft.category, rank, components: draft.components },
     });
     generated++;
   }

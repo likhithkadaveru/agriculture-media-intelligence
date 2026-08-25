@@ -14,10 +14,22 @@ Each feed returns the channel's ~15 most recent uploads with video id, title,
 description, published/updated timestamps, thumbnail URL, view count and like
 count. No credential is required, which is why live collection works today.
 
-**Retries.** YouTube intermittently answers 404/500 to rapid sequential feed
-requests even for valid channels. The connector retries three times with
-backoff (0s, 1.5s, 4s) before reporting a channel as failed, so a transient
-error is not mistaken for a dead channel.
+**Rate limiting is the main operational constraint.** YouTube throttles
+repeated feed polling from one address, answering 404/500 for channels that
+are perfectly valid and served correctly minutes earlier. Observed in live
+operation: running several full cycles within an hour caused most channels to
+fail. The connector retries five times with jittered backoff (0s, ~2s, ~6s,
+~15s, ~25s) before reporting a channel as failed, so a transient throttle is
+not mistaken for a dead channel.
+
+Failed queries are **not** marked as run, so their `next_run_at` stays null and
+the next cycle retries them immediately, while successful ones wait out their
+6-hour interval. Re-running the pipeline therefore tops up missing channels
+without re-collecting or re-enriching what already landed.
+
+At the intended production cadence (one cycle every 6 hours) this throttling
+is not expected to bite; it is a development-time hazard from running cycles
+back to back.
 
 **Channel registry** (`src/ingestion/connectors/youtube-rss/channels.ts`) —
 every channel id was resolved from its public page and its feed verified live.

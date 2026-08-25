@@ -1,85 +1,105 @@
 # Telangana Agriculture Intelligence Command Centre
 
-A public-intelligence platform for the Telangana agriculture ecosystem: it
-collects public content (news, YouTube, X-style posts, official statements,
-public web), normalizes it into a canonical evidence model, runs an
-explainable intelligence pipeline (relevance → enrichment → deduplication →
-narratives → findings), and presents ranked, fully-traceable intelligence to
-Agriculture Department leadership.
+A public-intelligence platform for the Telangana agriculture ecosystem. It
+collects public discourse (currently YouTube: Telugu news, agriculture
+programmes, farming creators, official government channels), understands it in
+Telugu and English, and turns it into a small number of things Agriculture
+Department leadership should know today — each traceable to the evidence that
+produced it.
 
-**Status: Phase 1 — foundation + one complete vertical slice.**
-The chain `source item → raw item → mention → enrichment → narrative →
-finding → NOW UI → evidence detail` works end to end on a clearly-marked
-development corpus (`data_origin = demo_seed`). No external credentials are
-required to run it.
+**Status: Phase 2 — live public data.** The system collects real public
+content, enriches it with schema-validated LLM extraction, derives narratives,
+and serves them through NOW, Narratives, Narrative Detail and Evidence
+surfaces. **No credentials are required to run it.**
 
 ## Quick start
 
 ```bash
 npm install
-npm run pipeline   # ingest demo corpus + run the intelligence pipeline
+npm run pipeline   # live collection + intelligence (no API keys needed)
 npm run dev        # open http://localhost:3000
 ```
 
-The pipeline is idempotent — run it as often as you like. Without a
-`DATABASE_URL` it uses an embedded PGlite database in `.data/` (delete that
-directory to reset). See `.env.example` for optional credentials.
+The pipeline is idempotent. Without `DATABASE_URL` it uses an embedded PGlite
+database in `.data/` (delete to reset). See `.env.example` and
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for optional credentials.
+
+> PGlite allows one connection per data directory: run the pipeline and the
+> dev server sequentially. Setting `DATABASE_URL` removes this constraint.
 
 Other commands:
 
 ```bash
-npm test                       # fast test suite (in-memory database)
-npm run trace -- seed-x-001    # print the full provenance chain for one record
-npm run db:generate            # regenerate SQL migrations after schema changes
-npm run typecheck
+npm run pipeline:seed                 # fictional development corpus instead of live data
+npm test                              # 37 tests, in-memory database
+npm run quality                       # data-quality + query-yield report
+npm run trace -- <external-id>        # full provenance chain for one record
+npm run audit:relevance               # docs/LIVE_RELEVANCE_AUDIT.md (also :voice, :dedup)
+npm run snapshot:create -- --label "…"  # frozen, verifiable copy of live state
 ```
 
-## What you will see
+## Screens
 
-- **NOW** (`/`) — ranked intelligence findings: what changed, why it matters,
-  where, who is talking, with explainable component metrics (independent
-  voices, districts, source types, farmer-originated share, duplicates
-  excluded). No opaque scores.
-- **Evidence detail** (`/findings/[id]`) — the trust surface: every underlying
-  item with original Telugu, labelled English translation, author/voice
-  classification with confidence, district with confidence, stance,
-  engagement, source link, a collapsible AI-interpretation block, the full
-  processing-event trail, and duplicates shown but never counted.
+- **NOW** (`/`) — ranked intelligence findings with explainable component
+  metrics (independent voices, districts, source types, farmer-originated
+  share, duplicates excluded). No opaque scores.
+- **Narratives** (`/narratives`) — what conversations are shaping Telangana
+  agriculture, ranked by movement then volume, with trend status.
+- **Narrative Detail** (`/narratives/[id]`) — executive synthesis, timeline,
+  extracted claims, who is talking, where, how it is framed, and every piece of
+  evidence.
+- **Evidence / Finding Detail** (`/findings/[id]`) — the trust surface: original
+  Telugu verbatim, labelled English translation, author classification with
+  confidence, district with confidence, processing trail, and duplicates shown
+  but never counted.
 
-A permanent ribbon marks the environment as **development data** whenever
-`demo_seed` content is present. Nothing in the seed corpus is a real post,
-person, outlet or claim.
+A ribbon states which evidence is on screen — **Live public data**, **Verified
+snapshot**, or **Development data** — computed from the lineage of the active
+findings, not from what happens to sit in the database.
 
-## Architecture (short version)
+## How it works
 
 ```
 connectors (SourceConnector) → raw_items (immutable) → mentions (canonical)
-  → relevance gate (deterministic, ontology) → enrichment (Zod-validated;
-    heuristic today, LLM behind the same interface) → dedup (exact + near)
-  → narratives (rule-assigned Phase 1, aggregates + snapshots)
-  → intelligence findings (explainable components) → evidence links
+  → boilerplate stripping (content_text; original_text kept verbatim)
+  → relevance gate (agriculture-first, deterministic, free)
+  → enrichment (Zod-validated; Claude CLI / AI Gateway / heuristic)
+      └─ model relevance confirmation (demotes non-substantive items)
+  → dedup (exact hash + near, title-gated)
+  → narratives (ontology-derived, subtopic-split, origin-partitioned)
+      └─ LLM adjudication (title + synthesis, deterministic fallback kept)
+  → findings (explainable components) → evidence links
 ```
 
-- Jobs are plain functions behind an application-level job layer
-  (`src/ingestion/jobs`) — no scheduler coupling; any backend that can call
-  `runJob()` can drive ingestion.
-- Every pipeline transition writes a `processing_events` row; every UI
-  conclusion traces to raw evidence.
-- Full details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md),
-  [docs/INTELLIGENCE_MODEL.md](docs/INTELLIGENCE_MODEL.md),
-  [docs/TRUST_AND_PROVENANCE.md](docs/TRUST_AND_PROVENANCE.md).
+Jobs are plain functions behind an application-level job layer — nothing
+imports a scheduler, so the execution backend can move without touching
+connectors or intelligence stages. Every pipeline transition writes a
+`processing_events` row.
+
+## Documentation
+
+| Document | Contents |
+|---|---|
+| [PRODUCT_VISION](docs/PRODUCT_VISION.md) | What this is and the principles constraining it |
+| [ARCHITECTURE](docs/ARCHITECTURE.md) | Stack, boundaries, identifiers, idempotency |
+| [DATA_SOURCES](docs/DATA_SOURCES.md) | Channel registry, quota model, Apify seam, compliance |
+| [ONTOLOGY](docs/ONTOLOGY.md) | Bilingual ontology, coverage, disambiguation, query tiers |
+| [INTELLIGENCE_MODEL](docs/INTELLIGENCE_MODEL.md) | Every pipeline stage as implemented |
+| [TRUST_AND_PROVENANCE](docs/TRUST_AND_PROVENANCE.md) | Guarantees, `data_origin`, snapshots |
+| [DEPLOYMENT](docs/DEPLOYMENT.md) | Credentials (all optional), operations, scheduling |
+| LIVE_*_AUDIT | Generated relevance / voice / dedup audits over live data |
 
 ## Repository layout
 
 ```
 src/
-  app/            NOW + finding/evidence pages (Next.js App Router)
-  components/     UI building blocks (evidence card, mix bars, badges)
+  app/            NOW, Narratives, Narrative Detail, Finding Detail
+  components/     evidence card, mix bars, timeline, badges
   db/             Drizzle schema, migrations, client, read-model queries
-  ingestion/      connectors, normalization, router, job layer
-  intelligence/   relevance, enrichment, dedup, narratives, findings
-  ontology/       bilingual (English/Telugu) listening ontology
-  types/          shared domain types
-scripts/          pipeline runner, migration runner, provenance trace
-docs/             architecture & trust documentation
+  ingestion/      connectors (youtube-rss, youtube-api, apify, demo-seed),
+                  normalization, boilerplate, router, scheduler, jobs
+  intelligence/   relevance, enrichment, dedup, narratives, findings, snapshot
+  ontology/       bilingual ontology + query generation
+scripts/          pipeline, migrate, trace, snapshot, quality, audits
+docs/
 ```

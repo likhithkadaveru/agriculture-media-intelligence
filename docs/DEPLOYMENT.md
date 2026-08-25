@@ -39,9 +39,13 @@ demote items, because it cannot judge substance.
   district-level farmer voices, small creators and coverage the registry
   misses. Free tier (10,000 units/day) supports ~12 full cycles per day at
   the scheduler's current caps.
-- **`AI_GATEWAY_API_KEY`** — production enrichment path. The Claude CLI bridge
-  is a development convenience (it uses the developer's local session, runs
-  one item at a time, and is not appropriate for a server).
+- **`AI_GATEWAY_API_KEY`** — production enrichment path, and the single
+  biggest throughput win. The Claude CLI bridge spawns a full CLI process per
+  item and measures **~30 seconds per mention**, serially: a 100-item batch
+  takes roughly an hour. The gateway path issues ordinary API calls (seconds
+  per item, parallelisable), so enrichment stops being the pipeline's
+  bottleneck. The CLI bridge exists so the system works with zero credentials
+  during development; it is not appropriate for a server.
 - **`APIFY_API_TOKEN`** — Phase 3 sources (X, Instagram) via the adapter seam.
 - **`DATABASE_URL`** — required for real deployment; PGlite is single-process
   and single-connection.

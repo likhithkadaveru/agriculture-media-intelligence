@@ -111,7 +111,13 @@ export class YouTubeRssConnector implements SourceConnector {
    * treated as a dead channel.
    */
   fetchXml: (channelId: string) => Promise<string> = async (channelId) => {
-    const delays = [0, 1500, 4000];
+    // YouTube throttles repeated feed polling from one address, answering
+    // 404/500 to perfectly valid channels. Observed in live operation:
+    // short retries (≈5s total) were not enough once several cycles ran in
+    // an hour. Backoff runs to ~40s with jitter before giving up.
+    const delays = [0, 2000, 6000, 15000, 25000].map((d) =>
+      d === 0 ? 0 : d + Math.floor(Math.random() * 1000),
+    );
     let lastError: unknown;
     for (const delay of delays) {
       if (delay > 0) await new Promise((r) => setTimeout(r, delay));
