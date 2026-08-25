@@ -1,10 +1,13 @@
 /**
- * Phase 1 ontology subset — representative, not complete.
- * The full Telangana ontology (all 33 districts, complete mandal lists,
- * complete scheme/crop/input vocabularies) extends these arrays without
- * touching matching or pipeline code.
+ * Telangana agriculture listening ontology — configuration, not code.
+ * Every concept: canonical id, English/Telugu labels, variants
+ * (English spellings, Telugu forms, transliterations), exclusions.
+ *
+ * Districts live in ./districts.ts (all 33).
  */
-import type { DistrictEntry, OntologyTerm, TopicEntry } from "./types";
+import type { GovernmentEntityEntry, OntologyTerm, TopicEntry } from "./types";
+
+export { DISTRICTS } from "./districts";
 
 export const TELANGANA_MARKERS: OntologyTerm = {
   id: "telangana",
@@ -12,60 +15,6 @@ export const TELANGANA_MARKERS: OntologyTerm = {
   te: "తెలంగాణ",
   variants: ["telangana", "తెలంగాణ", "తెలంగాణా", "telangana state", "ts govt"],
 };
-
-export const DISTRICTS: DistrictEntry[] = [
-  {
-    id: "hyderabad",
-    en: "Hyderabad",
-    te: "హైదరాబాద్",
-    variants: ["hyderabad", "హైదరాబాద్", "hyd"],
-  },
-  {
-    id: "karimnagar",
-    en: "Karimnagar",
-    te: "కరీంనగర్",
-    variants: ["karimnagar", "కరీంనగర్", "karim nagar"],
-    mandals: [
-      {
-        id: "huzurabad",
-        en: "Huzurabad",
-        te: "హుజూరాబాద్",
-        variants: ["huzurabad", "హుజూరాబాద్", "huzoorabad"],
-      },
-    ],
-  },
-  {
-    id: "warangal",
-    en: "Warangal",
-    te: "వరంగల్",
-    variants: ["warangal", "వరంగల్", "warangal urban", "warangal rural"],
-  },
-  {
-    id: "nizamabad",
-    en: "Nizamabad",
-    te: "నిజామాబాద్",
-    variants: ["nizamabad", "నిజామాబాద్"],
-  },
-  {
-    id: "mahabubnagar",
-    en: "Mahabubnagar",
-    te: "మహబూబ్‌నగర్",
-    variants: [
-      "mahabubnagar",
-      "mahbubnagar",
-      "మహబూబ్‌నగర్",
-      "మహబూబ్ నగర్",
-      "palamuru",
-      "పాలమూరు",
-    ],
-  },
-  {
-    id: "nalgonda",
-    en: "Nalgonda",
-    te: "నల్గొండ",
-    variants: ["nalgonda", "నల్గొండ", "నల్లగొండ"],
-  },
-];
 
 export const TOPICS: TopicEntry[] = [
   {
@@ -83,6 +32,8 @@ export const TOPICS: TopicEntry[] = [
       "డి.ఎ.పి",
       "urea",
       "యూరియా",
+      "complex fertilizer",
+      "కాంప్లెక్స్ ఎరువులు",
     ],
     subtopics: [
       {
@@ -91,9 +42,48 @@ export const TOPICS: TopicEntry[] = [
         variants: ["dap", "డీఏపీ", "డి.ఎ.పి", "di-ammonium phosphate"],
       },
       {
+        id: "urea-availability",
+        en: "Urea availability",
+        variants: ["urea", "యూరియా"],
+      },
+      {
         id: "black-market-sales",
         en: "Above-MRP / black market sales",
         variants: ["black market", "బ్లాక్", "mrp కంటే ఎక్కువ", "above mrp", "బ్లాక్ లో"],
+      },
+      {
+        id: "fertilizer-price",
+        en: "Fertilizer price",
+        variants: ["fertilizer price", "ఎరువుల ధర", "ఎరువుల ధరలు", "price of dap"],
+      },
+    ],
+  },
+  {
+    id: "seeds",
+    en: "Seed availability and quality",
+    te: "విత్తనాలు",
+    variants: [
+      "seeds",
+      "seed supply",
+      "విత్తనాలు",
+      "విత్తనం",
+      "fake seeds",
+      "నకిలీ విత్తనాలు",
+      "spurious seeds",
+      "seed shortage",
+      "విత్తన కొరత",
+    ],
+    exclusions: ["seed funding", "seed round"],
+    subtopics: [
+      {
+        id: "fake-seeds",
+        en: "Fake / spurious seeds",
+        variants: ["fake seeds", "spurious seeds", "నకిలీ విత్తనాలు", "కల్తీ విత్తనాలు"],
+      },
+      {
+        id: "seed-availability",
+        en: "Seed availability",
+        variants: ["seed shortage", "seed supply", "విత్తన కొరత", "విత్తనాల కొరత"],
       },
     ],
   },
@@ -107,39 +97,82 @@ export const TOPICS: TopicEntry[] = [
       "వర్షం",
       "వర్షాలు",
       "వాన",
+      "వానలు",
       "వర్షపాతం",
-      "drought",
-      "కరువు",
       "monsoon",
+      "రుతుపవన",
+    ],
+    subtopics: [
+      {
+        id: "rainfall-deficit",
+        en: "Rainfall deficit",
+        variants: ["rain deficit", "deficit rainfall", "వర్షాభావం", "వర్షాలు తక్కువ", "లోటు వర్షపాతం"],
+      },
+      {
+        id: "drought",
+        en: "Drought",
+        variants: ["drought", "కరువు", "కరవు"],
+      },
+      {
+        id: "flooding",
+        en: "Flooding / heavy rain",
+        variants: ["flood", "floods", "flooding", "వరద", "వరదలు", "heavy rain", "భారీ వర్షాలు", "కుండపోత"],
+      },
     ],
   },
   {
     id: "procurement",
-    en: "Procurement",
+    en: "Procurement and MSP",
     te: "కొనుగోలు",
     variants: [
       "procurement",
       "msp",
+      "minimum support price",
       "కొనుగోలు",
       "కొనుగోళ్లు",
       "మద్దతు ధర",
+      "కనీస మద్దతు ధర",
       "ధాన్యం కొనుగోలు",
       "paddy purchase",
-      "procurement payment",
+      "procurement centre",
+      "కొనుగోలు కేంద్రం",
+      "కొనుగోలు కేంద్రాలు",
     ],
     subtopics: [
       {
         id: "payment-delay",
         en: "Payment delays",
-        variants: ["payment delay", "payments delayed", "డబ్బులు పడలేదు", "డబ్బులు రాలేదు"],
+        variants: [
+          "payment delay",
+          "payments delayed",
+          "payment pending",
+          "డబ్బులు పడలేదు",
+          "డబ్బులు రాలేదు",
+          "చెల్లింపులు ఆలస్యం",
+        ],
+      },
+      {
+        id: "msp-demand",
+        en: "MSP demands",
+        variants: ["msp demand", "మద్దతు ధర డిమాండ్", "bonus over msp", "బోనస్"],
       },
     ],
   },
   {
     id: "crop-damage",
-    en: "Crop damage",
+    en: "Crop loss and damage",
     te: "పంట నష్టం",
-    variants: ["crop loss", "crop damage", "పంట నష్టం", "పంటనష్టం", "crops damaged"],
+    variants: [
+      "crop loss",
+      "crop damage",
+      "crops damaged",
+      "పంట నష్టం",
+      "పంటనష్టం",
+      "పంటలు దెబ్బతిన్నాయి",
+      "crop failure",
+      "compensation for crop",
+      "పంట నష్ట పరిహారం",
+    ],
   },
   {
     id: "farmer-support-schemes",
@@ -152,6 +185,25 @@ export const TOPICS: TopicEntry[] = [
       "rythu bima",
       "రైతు బీమా",
       "input subsidy",
+      "పెట్టుబడి సాయం",
+      "farmer support payment",
+    ],
+    subtopics: [
+      {
+        id: "rythu-bharosa-payment",
+        en: "Rythu Bharosa payments",
+        variants: ["rythu bharosa", "రైతు భరోసా"],
+      },
+      {
+        id: "loan-waiver",
+        en: "Crop loan waiver",
+        variants: ["loan waiver", "రుణమాఫీ", "runa mafi", "crop loan waiver", "పంట రుణ మాఫీ"],
+      },
+      {
+        id: "crop-insurance",
+        en: "Crop insurance",
+        variants: ["crop insurance", "పంటల బీమా", "పంట బీమా", "fasal bima"],
+      },
     ],
   },
   {
@@ -159,20 +211,108 @@ export const TOPICS: TopicEntry[] = [
     en: "Agricultural power supply",
     te: "వ్యవసాయ విద్యుత్",
     variants: [
-      "power supply",
+      "power supply to agriculture",
       "power cut",
-      "electricity",
+      "free power",
       "కరెంటు",
       "విద్యుత్",
+      "ఉచిత విద్యుత్",
       "transformer",
       "ట్రాన్స్‌ఫార్మర్",
+      "24 గంటల కరెంట్",
+    ],
+  },
+  {
+    id: "irrigation",
+    en: "Irrigation and water availability",
+    te: "సాగునీరు",
+    variants: [
+      "irrigation",
+      "సాగునీరు",
+      "సాగు నీరు",
+      "canal water",
+      "కాలువ నీరు",
+      "project water",
+      "borewell",
+      "బోరు",
+      "చెరువు",
+      "reservoir release",
     ],
   },
   {
     id: "pest-outbreak",
-    en: "Pest outbreak",
+    en: "Pest and disease outbreak",
     te: "పురుగు ఉధృతి",
-    variants: ["pest", "pink bollworm", "గులాబీ పురుగు", "పురుగు", "తెగులు", "bollworm"],
+    variants: [
+      "pest",
+      "pest attack",
+      "pink bollworm",
+      "గులాబీ పురుగు",
+      "పురుగు",
+      "తెగులు",
+      "తెగుళ్లు",
+      "bollworm",
+      "brown planthopper",
+      "దోమ పోటు",
+      "వైరస్ తెగులు",
+    ],
+  },
+  {
+    id: "market-price",
+    en: "Market prices",
+    te: "మార్కెట్ ధర",
+    variants: [
+      "market price",
+      "market rate",
+      "మార్కెట్ ధర",
+      "ధర పతనం",
+      "price crash",
+      "price fall",
+      "ధరలు పడిపోయాయి",
+      "మద్దతు ధర లేదు",
+      "market yard",
+      "మార్కెట్ యార్డ్",
+    ],
+  },
+  {
+    id: "agricultural-credit",
+    en: "Agricultural credit",
+    te: "పంట రుణాలు",
+    variants: [
+      "crop loan",
+      "crop loans",
+      "పంట రుణం",
+      "పంట రుణాలు",
+      "agricultural credit",
+      "kisan credit",
+      "రుణం ఇవ్వడం లేదు",
+    ],
+  },
+  {
+    id: "input-cost",
+    en: "Input costs",
+    te: "పెట్టుబడి ఖర్చు",
+    variants: [
+      "input cost",
+      "cost of cultivation",
+      "పెట్టుబడి ఖర్చు",
+      "సాగు ఖర్చు",
+      "పెట్టుబడి పెరిగింది",
+    ],
+  },
+  {
+    id: "farm-mechanisation",
+    en: "Farm mechanisation",
+    te: "వ్యవసాయ యాంత్రీకరణ",
+    variants: [
+      "farm mechanisation",
+      "farm mechanization",
+      "యాంత్రీకరణ",
+      "tractor subsidy",
+      "ట్రాక్టర్ సబ్సిడీ",
+      "harvester",
+      "హార్వెస్టర్",
+    ],
   },
 ];
 
@@ -185,11 +325,41 @@ export const INPUTS: OntologyTerm[] = [
   },
   { id: "urea", en: "Urea", te: "యూరియా", variants: ["urea", "యూరియా"] },
   {
+    id: "fertilizer",
+    en: "Fertilizer",
+    te: "ఎరువులు",
+    variants: ["fertilizer", "fertiliser", "ఎరువు", "ఎరువులు"],
+  },
+  {
     id: "seed",
     en: "Seed",
     te: "విత్తనాలు",
-    variants: ["seeds", "seed supply", "విత్తనాలు", "విత్తనం", "fake seeds", "నకిలీ విత్తనాలు"],
+    variants: ["seeds", "seed supply", "విత్తనాలు", "విత్తనం"],
     exclusions: ["seed funding", "seed round"],
+  },
+  {
+    id: "pesticide",
+    en: "Pesticides",
+    te: "పురుగుమందులు",
+    variants: ["pesticide", "pesticides", "పురుగుమందు", "పురుగుమందులు", "పురుగు మందులు"],
+  },
+  {
+    id: "electricity",
+    en: "Electricity",
+    te: "విద్యుత్",
+    variants: ["electricity", "power supply", "విద్యుత్", "కరెంటు"],
+  },
+  {
+    id: "irrigation-water",
+    en: "Irrigation water",
+    te: "సాగునీరు",
+    variants: ["irrigation", "సాగునీరు", "సాగు నీరు"],
+  },
+  {
+    id: "credit",
+    en: "Agricultural credit",
+    te: "పంట రుణం",
+    variants: ["crop loan", "పంట రుణం", "agricultural credit"],
   },
 ];
 
@@ -198,10 +368,72 @@ export const CROPS: OntologyTerm[] = [
     id: "paddy",
     en: "Paddy",
     te: "వరి",
-    variants: ["paddy", "వరి", "ధాన్యం", "rice crop", "వరి నాట్లు"],
+    variants: ["paddy", "వరి", "ధాన్యం", "rice crop", "వరి నాట్లు", "వడ్లు"],
   },
-  { id: "cotton", en: "Cotton", te: "పత్తి", variants: ["cotton", "పత్తి"] },
-  { id: "maize", en: "Maize", te: "మొక్కజొన్న", variants: ["maize", "మొక్కజొన్న", "corn crop"] },
+  { id: "cotton", en: "Cotton", te: "పత్తి", variants: ["cotton", "పత్తి", "kapas"] },
+  {
+    id: "maize",
+    en: "Maize",
+    te: "మొక్కజొన్న",
+    variants: ["maize", "మొక్కజొన్న", "corn crop", "makka", "మక్క"],
+  },
+  {
+    id: "chilli",
+    en: "Chilli",
+    te: "మిర్చి",
+    variants: ["chilli", "chillies", "mirchi", "మిర్చి", "మిరప", "red chilli"],
+  },
+  {
+    id: "turmeric",
+    en: "Turmeric",
+    te: "పసుపు",
+    variants: ["turmeric", "పసుపు", "పసుపు పంట"],
+  },
+  {
+    id: "soybean",
+    en: "Soybean",
+    te: "సోయాబీన్",
+    variants: ["soybean", "soya", "సోయా", "సోయాబీన్"],
+  },
+  {
+    id: "red-gram",
+    en: "Red gram (pigeon pea)",
+    te: "కంది",
+    variants: ["red gram", "redgram", "pigeon pea", "tur dal", "కంది", "కందులు"],
+  },
+  {
+    id: "green-gram",
+    en: "Green gram",
+    te: "పెసర",
+    variants: ["green gram", "moong", "పెసర", "పెసలు"],
+  },
+  {
+    id: "bengal-gram",
+    en: "Bengal gram",
+    te: "శనగ",
+    variants: ["bengal gram", "chana", "శనగ", "శనగలు"],
+  },
+  {
+    id: "groundnut",
+    en: "Groundnut",
+    te: "వేరుశనగ",
+    variants: ["groundnut", "peanut crop", "వేరుశనగ", "పల్లీ"],
+  },
+  {
+    id: "horticulture",
+    en: "Horticulture",
+    te: "ఉద్యాన పంటలు",
+    variants: [
+      "horticulture",
+      "ఉద్యాన",
+      "vegetables",
+      "కూరగాయలు",
+      "mango",
+      "మామిడి",
+      "fruit crop",
+      "పండ్ల తోట",
+    ],
+  },
 ];
 
 export const SCHEMES: OntologyTerm[] = [
@@ -217,11 +449,30 @@ export const SCHEMES: OntologyTerm[] = [
     te: "రైతు బీమా",
     variants: ["rythu bima", "raithu bima", "రైతు బీమా"],
   },
+  {
+    id: "crop-insurance",
+    en: "Crop insurance",
+    te: "పంటల బీమా",
+    variants: ["crop insurance", "పంటల బీమా", "పంట బీమా", "fasal bima"],
+  },
+  {
+    id: "loan-waiver",
+    en: "Crop loan waiver",
+    te: "రుణమాఫీ",
+    variants: ["loan waiver", "రుణమాఫీ", "runa mafi", "crop loan waiver", "పంట రుణ మాఫీ"],
+  },
+  {
+    id: "farm-mechanisation-scheme",
+    en: "Farm mechanisation support",
+    te: "యాంత్రీకరణ పథకం",
+    variants: ["farm mechanisation scheme", "tractor subsidy", "ట్రాక్టర్ సబ్సిడీ", "యాంత్రీకరణ"],
+  },
 ];
 
-export const GOVERNMENT_ENTITIES: OntologyTerm[] = [
+export const GOVERNMENT_ENTITIES: GovernmentEntityEntry[] = [
   {
     id: "agriculture-department",
+    agricultureSpecific: true,
     en: "Agriculture Department",
     te: "వ్యవసాయ శాఖ",
     variants: [
@@ -230,36 +481,55 @@ export const GOVERNMENT_ENTITIES: OntologyTerm[] = [
       "వ్యవసాయశాఖ",
       "dept of agriculture",
       "agri department",
+      "agriculture officer",
+      "వ్యవసాయ అధికారి",
     ],
   },
   {
     id: "agriculture-minister",
+    agricultureSpecific: true,
     en: "Agriculture Minister",
     te: "వ్యవసాయ మంత్రి",
-    variants: ["agriculture minister", "వ్యవసాయ మంత్రి", "agri minister"],
+    variants: ["agriculture minister", "వ్యవసాయ మంత్రి", "agri minister", "వ్యవసాయ శాఖ మంత్రి"],
   },
   {
     id: "civil-supplies",
+    agricultureSpecific: false,
     en: "Civil Supplies",
     te: "పౌర సరఫరాల శాఖ",
     variants: ["civil supplies", "పౌర సరఫరాల"],
   },
   {
     id: "district-administration",
+    agricultureSpecific: false,
     en: "District administration",
     variants: ["district collector", "కలెక్టర్", "district administration"],
   },
   {
+    id: "agricultural-marketing",
+    agricultureSpecific: true,
+    en: "Agricultural Marketing",
+    te: "వ్యవసాయ మార్కెటింగ్",
+    variants: ["agricultural marketing", "market committee", "మార్కెట్ కమిటీ", "marketing department"],
+  },
+  {
     id: "pjtsau",
-    en: "PJTSAU",
-    variants: ["pjtsau", "agricultural university", "వ్యవసాయ విశ్వవిద్యాలయం"],
+    agricultureSpecific: true,
+    en: "Agricultural University (PJTSAU)",
+    variants: ["pjtsau", "agricultural university", "వ్యవసాయ విశ్వవిద్యాలయం", "agriculture university"],
+  },
+  {
+    id: "cmo",
+    agricultureSpecific: false,
+    en: "Chief Minister / CMO",
+    te: "ముఖ్యమంత్రి",
+    variants: ["chief minister", "ముఖ్యమంత్రి", "cm revanth", "సీఎం"],
   },
 ];
 
 /**
  * Generic agriculture markers — used by the relevance gate in addition to
- * topics/crops/inputs/schemes. A text is agriculture-relevant if it matches
- * any of these families.
+ * topics/crops/inputs/schemes.
  */
 export const AGRICULTURE_MARKERS: OntologyTerm = {
   id: "agriculture",
@@ -280,9 +550,13 @@ export const AGRICULTURE_MARKERS: OntologyTerm = {
     "పంట",
     "పంటలు",
     "sowing",
+    "harvest",
+    "కోత",
     "rabi",
     "kharif",
     "రబీ",
     "ఖరీఫ్",
+    "వానాకాలం",
+    "యాసంగి",
   ],
 };

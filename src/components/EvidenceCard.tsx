@@ -32,6 +32,18 @@ export function EvidenceCard({ item }: { item: EvidenceItem }) {
   const { mention, author, events, duplicates } = item;
   const isTelugu = mention.language === "te" || mention.language === "mixed";
 
+  /*
+   * Reading view uses the boilerplate-stripped text; the title is already
+   * displayed above, so it is not repeated in the body.
+   */
+  const displayText = mention.contentText ?? mention.originalText;
+  const sourceBody =
+    mention.title && displayText.startsWith(mention.title)
+      ? displayText.slice(mention.title.length).trim() || displayText
+      : displayText;
+  const hasStrippedContent =
+    mention.contentText !== null && mention.originalText.length > mention.contentText.length + 40;
+
   return (
     <article className="rounded-lg border border-border bg-surface p-5">
       {/* Source header */}
@@ -75,11 +87,29 @@ export function EvidenceCard({ item }: { item: EvidenceItem }) {
 
       {/* SOURCE CONTENT */}
       <div className="mt-4 space-y-3">
-        {mention.title && mention.platform !== "x" && (
-          <p className={`text-[15px] font-medium text-ink ${isTelugu ? "telugu-text" : ""}`}>
-            {mention.title}
-          </p>
-        )}
+        <div className={mention.thumbnailUrl ? "flex flex-col gap-4 sm:flex-row" : ""}>
+          {mention.thumbnailUrl && (
+            <a
+              href={mention.url ?? undefined}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block shrink-0"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={mention.thumbnailUrl}
+                alt=""
+                loading="lazy"
+                className="aspect-video w-full rounded-md border border-border object-cover sm:w-[240px]"
+              />
+            </a>
+          )}
+          {mention.title && mention.platform !== "x" && (
+            <p className={`text-[15px] font-medium text-ink ${isTelugu ? "telugu-text" : ""}`}>
+              {mention.title}
+            </p>
+          )}
+        </div>
         <div className="border-l-2 border-border-strong pl-4">
           <div className="kicker text-ink-faint">
             Original{mention.language ? ` — ${LANGUAGE_LABELS[mention.language]}` : ""}
@@ -89,10 +119,27 @@ export function EvidenceCard({ item }: { item: EvidenceItem }) {
               isTelugu ? "telugu-text" : ""
             }`}
           >
-            {mention.platform === "news" || mention.platform === "official" || mention.platform === "web"
-              ? mention.originalText.split("\n\n").slice(1).join("\n\n") || mention.originalText
-              : mention.originalText}
+            {sourceBody}
           </p>
+          {/*
+            Channel boilerplate (subscribe CTAs, link lists, hashtag walls)
+            is removed from the reading view but never destroyed — the full
+            text as the platform returned it stays one click away.
+          */}
+          {hasStrippedContent && (
+            <details className="provenance mt-2">
+              <summary className="text-[11.5px] text-ink-faint hover:text-ink-muted">
+                <span className="disclosure" /> Show full source text as published
+              </summary>
+              <p
+                className={`mt-2 whitespace-pre-line text-[12.5px] text-ink-faint ${
+                  isTelugu ? "telugu-text" : ""
+                }`}
+              >
+                {mention.originalText}
+              </p>
+            </details>
+          )}
         </div>
 
         {mention.englishTranslation && (
@@ -125,7 +172,7 @@ export function EvidenceCard({ item }: { item: EvidenceItem }) {
       )}
 
       {/* Source link */}
-      <div className="mt-4 flex items-center gap-4">
+      <div className="mt-4 flex flex-wrap items-center gap-4">
         {mention.url && (
           <a
             href={mention.url}
@@ -135,6 +182,11 @@ export function EvidenceCard({ item }: { item: EvidenceItem }) {
           >
             Open original source ↗
           </a>
+        )}
+        {mention.transcriptStatus === "unavailable" && (
+          <span className="text-[11.5px] text-ink-faint">
+            Transcript not available — analysed from title, description and metadata
+          </span>
         )}
       </div>
 

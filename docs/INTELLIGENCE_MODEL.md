@@ -1,6 +1,46 @@
 # Intelligence model
 
-_Phase 1. Describes the implemented pipeline, stage by stage._
+_Phase 2. Describes the implemented pipeline, stage by stage._
+
+## Two-stage relevance (the shape live data forced)
+
+Relevance is a funnel, not a single test:
+
+```
+deterministic gate (free, recall-oriented)
+        ↓ passes
+LLM enrichment + relevance confirmation (precision)
+        ↓ confirms
+narratives and findings
+```
+
+The first live run exposed that the original single-stage design was
+**inverted**. Telangana political content — official channel press releases,
+CM coverage — is saturated with state markers and mentions "farmers" once in
+passing, so it flooded through the gate and consumed enrichment budget.
+Meanwhile genuine Telugu farming content was discarded for free, because it
+discusses paddy, urea and pests without ever naming the state. The system was
+paying to reject noise and throwing away signal.
+
+Three corrections, each visible in code:
+
+1. **Agriculture-first, title-weighted.** A real agriculture story says so in
+   its headline; a passing mention in a press-release body does not. Content
+   with no agriculture evidence is now rejected deterministically and never
+   reaches the model.
+2. **Agriculture-specific government entities.** "Chief Minister" is not
+   agriculture evidence. `GovernmentEntityEntry.agricultureSpecific`
+   separates the Agriculture Department and PJTSAU from the CMO and district
+   collectors.
+3. **Regional prior for agriculture-dedicated sources.** Telugu farming
+   channels cover both Telangana and Andhra Pradesh and rarely name either.
+   They now pass the gate on a weak prior so the model — which reads context
+   properly — decides state relevance, instead of the gate discarding them.
+
+Model confirmation then demotes anything scoring below 0.5 on either axis,
+recording a `RELEVANCE_REJECTED` event with `stage: "model_confirmation"` and
+both scores. Only model-backed enrichers do this; the deterministic enricher
+never demotes, because it cannot judge substance.
 
 ## Canonical mention
 
@@ -44,23 +84,82 @@ nothing unvalidated reaches the database or UI.
   success, enrichedAt}` on the mention and in an `ENRICHED` /
   `ENRICHMENT_FAILED` event. Failures never crash the stage.
 
+## Stage 2.5 — boilerplate stripping (`src/ingestion/normalization/boilerplate.ts`)
+
+Real YouTube descriptions are mostly channel promotion: subscribe CTAs, URLs,
+hashtag blocks and SEO keyword tails. In one observed case ~1,500 of 1,923
+characters were boilerplate. This caused two distinct defects at once:
+
+- **False duplicates** — unrelated videos from one channel scored 0.75–0.97
+  similarity purely on shared promo text.
+- **False relevance** — an Andhra Pradesh story was accepted as Telangana
+  because the SEO tail contained "Telangana News Today".
+
+So mentions carry a derived `content_text` (boilerplate removed) alongside the
+verbatim `original_text`. Relevance, deduplication and enrichment read
+`content_text`; evidence display keeps `original_text`. Source content is
+never altered — only what the intelligence layer reads is narrowed to what the
+author actually wrote.
+
 ## Stage 3 — deduplication (`src/intelligence/dedup`)
 
-- **Exact**: sha256 over normalized text (lowercased, punctuation stripped,
-  letters + combining marks kept — Telugu matras are `\p{M}` and must
-  survive normalization).
-- **Near**: word-bigram Jaccard ≥ 0.4 AND unigram Jaccard ≥ 0.6, calibrated
-  against the corpus (syndicated light rewrite ≈ 0.55/0.78; closest distinct
-  pair ≈ 0.17/0.41). Earliest-published item is canonical.
+Governing rule: **same content ≠ same claim.** Fourteen farmers independently
+reporting a fertilizer shortage are fourteen voices, not one duplicate.
+
+- **Exact**: sha256 over normalized `content_text` (lowercased, punctuation
+  stripped, letters + combining marks kept — Telugu matras are `\p{M}` and
+  must survive normalization).
+- **Near**: three conditions must all hold — headline-core Jaccard ≥ 0.3,
+  body bigram Jaccard ≥ 0.4, body unigram Jaccard ≥ 0.6.
+- **The title gate** exists because body similarity alone proved insufficient
+  on live data. The headline core is the first pipe-separated segment (where
+  Telugu news titles carry the story) minus broadcast stopwords (`live`,
+  `news`, `tv`, `telugu`, …), so items from one channel do not inherit
+  similarity from shared branding.
+
+Calibration against real and seed pairs — genuine duplicates score 0.33–1.0 on
+the title gate, false positives 0.00–0.18, leaving the 0.3 threshold in a
+clear gap:
+
+| Case | Title similarity |
+|---|---|
+| Syndicated story, rewritten headline | 0.33 |
+| Same event, extended headline | 1.00 |
+| Re-uploaded press meet | 1.00 |
+| Different stories, same channel boilerplate | 0.00–0.06 |
+| Independent farmers, same issue, different districts | 0.18 |
+
+Earliest-published item is canonical.
 - Duplicates keep `status = "duplicate"` with `duplicate_of_mention_id` and
   are retained as evidence, displayed nested under their canonical item, and
   **never counted** in narrative or finding aggregates.
 
 ## Stage 4 — narratives (`src/intelligence/narratives`)
 
-Phase 1 assignment is rule-based (`NARRATIVE_DEFINITIONS`: predicates over
-enriched fields, `assigned_by = "rule"`). Aggregation over canonical mentions
-only:
+Narratives are **derived from the ontology**, not hard-coded, and are strictly
+partitioned by `data_origin` — live evidence and development evidence can
+never meet inside one narrative.
+
+Derivation (`deriveNarratives`):
+
+- A **subtopic** with ≥3 distinct items becomes its own narrative, so one
+  topic yields genuinely different conversations rather than a single bucket:
+  `fertilizer-availability/dap-availability` and
+  `fertilizer-availability/fertilizer-price` stay separate.
+- Remaining topic-level items form a base topic narrative (≥2 items).
+- One mention can evidence several narratives.
+
+**LLM adjudication** (`adjudicate.ts`) then proposes a precise title and a
+2–3 sentence synthesis grounded only in representative evidence, Zod-validated,
+stored in `explanation`. The deterministic title and computed executive summary
+always remain as fallback and are never overwritten by the model.
+
+**Trend status** (`computeTrendStatus`) is observation-window based in Phase 2 —
+no historical baseline exists yet: `emerging` (first evidence within 2 days),
+`rising` (recent ≥ 1.5× prior window), `falling`, `resurfacing` (≥7-day quiet
+gap before a new burst), `stable`.
+
+Aggregation over canonical mentions only:
 
 - mention count, unique authors, source mix, voice mix, district counts,
   first/last detected, stance summary;
@@ -69,7 +168,13 @@ only:
 - A template executive summary composed only from computed aggregates.
 - Confidence = min(0.95, 0.3 + 0.05·authors + 0.08·sourceTypes) — a stated
   formula, not a model output.
-- One `narrative_snapshots` row per run (future trend detection input).
+- One `narrative_snapshots` row per run, recording mention count, duplicate
+  count, unique authors, source mix and type count, voice mix, districts and
+  district count, stance mix, stance by voice, engagement totals,
+  `newMentionsSincePrevious`, first/last seen, trend status and confidence.
+  This series is the raw material Phase 3 needs for velocity and
+  emerging-signal detection; trustworthy baselines require history that only
+  accumulates by running.
 
 ## Stage 5 — findings (`src/intelligence/findings`)
 

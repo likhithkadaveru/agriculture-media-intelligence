@@ -27,19 +27,52 @@ describe("deduplication", () => {
   });
 
   it("flags lightly re-edited syndicated copy as near-duplicate", () => {
-    expect(nearDuplicateSimilarity(WIRE_COPY, LIGHT_REWRITE)).toBeGreaterThan(0);
+    expect(
+      nearDuplicateSimilarity(
+        { title: "Farmers report DAP shortage ahead of sowing", body: WIRE_COPY },
+        { title: "DAP shortage worries farmers as sowing nears", body: LIGHT_REWRITE },
+      ),
+    ).toBeGreaterThan(0);
   });
 
   it("does not flag distinct stories on the same topic", () => {
-    expect(nearDuplicateSimilarity(WIRE_COPY, DIFFERENT_STORY)).toBe(0);
+    expect(
+      nearDuplicateSimilarity(
+        { title: "DAP shortage reported", body: WIRE_COPY },
+        { title: "Rainfall deficit in Nizamabad", body: DIFFERENT_STORY },
+      ),
+    ).toBe(0);
   });
 
   it("does not flag short distinct posts", () => {
     expect(
       nearDuplicateSimilarity(
-        "వరంగల్ లో డీఏపీ బస్తాలు బ్లాక్ లో అమ్ముతున్నారు",
-        "మా సొసైటీలో డీఏపీ లేదని చెప్పారు కరీంనగర్",
+        { title: null, body: "వరంగల్ లో డీఏపీ బస్తాలు బ్లాక్ లో అమ్ముతున్నారు" },
+        { title: null, body: "మా సొసైటీలో డీఏపీ లేదని చెప్పారు కరీంనగర్" },
       ),
     ).toBe(0);
+  });
+
+  it("title gate protects distinct stories that share channel boilerplate", () => {
+    // Live-data defect: unrelated videos from one channel shared ~1500 chars
+    // of promo text and scored 0.75–0.97 body similarity.
+    const promo =
+      "Watch our channel for the latest Telugu news updates from Telangana and around the world with breaking news exclusive interviews live reports sports update weather reports business trends";
+    expect(
+      nearDuplicateSimilarity(
+        { title: "Telangana Graduate MLC Elections analysis", body: `MLC election contest heats up. ${promo}` },
+        { title: "Non Stop 90 News political roundup", body: `Political roundup of the day. ${promo}` },
+      ),
+    ).toBe(0);
+  });
+
+  it("still merges genuine re-uploads with the same title", () => {
+    const body = "CM addresses the media at the Secretariat on the assembly session schedule.";
+    expect(
+      nearDuplicateSimilarity(
+        { title: "LIVE: CM Press Meet at Secretariat", body },
+        { title: "LIVE: CM Press Meet at Secretariat", body },
+      ),
+    ).toBeGreaterThan(0);
   });
 });

@@ -12,12 +12,19 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --tsconfig tsconfig.scripts.json scripts/migrate.ts",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "pipeline:seed": "tsx --tsconfig tsconfig.scripts.json scripts/run-pipeline.ts seed",
+    "snapshot:create": "tsx --tsconfig tsconfig.scripts.json scripts/create-snapshot.ts",
+    "quality": "tsx --tsconfig tsconfig.scripts.json scripts/quality-report.ts",
+    "audit:relevance": "tsx --tsconfig tsconfig.scripts.json scripts/audit-report.ts relevance",
+    "audit:voice": "tsx --tsconfig tsconfig.scripts.json scripts/audit-report.ts voice",
+    "audit:dedup": "tsx --tsconfig tsconfig.scripts.json scripts/audit-report.ts dedup"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.7",
     "ai": "^7.0.77",
     "drizzle-orm": "^0.45.2",
+    "fast-xml-parser": "^5.11.0",
     "next": "16.3.2",
     "pg": "^8.23.0",
     "react": "19.2.8",

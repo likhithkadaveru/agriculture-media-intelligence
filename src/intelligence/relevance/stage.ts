@@ -24,10 +24,18 @@ export async function runRelevanceStage(db: Db): Promise<RelevanceStageResult> {
   const authorById = new Map(authorRows.map((a) => [a.id, a]));
 
   for (const mention of pending) {
-    const text = [mention.title, mention.originalText].filter(Boolean).join("\n");
+    // Read the boilerplate-stripped text: channel promo/SEO tails otherwise
+    // create false Telangana/agriculture matches.
+    const text = mention.contentText ?? [mention.title, mention.originalText].filter(Boolean).join("\n");
     const author = mention.authorId ? authorById.get(mention.authorId) : undefined;
+    // Channel registry kind is carried on the author bio as "channel-kind:x".
+    const sourceKind = author?.bio?.startsWith("channel-kind:")
+      ? author.bio.slice("channel-kind:".length)
+      : null;
     const verdict = assessRelevance(text, {
+      title: mention.title,
       authorContext: author ? [author.name, author.bio].filter(Boolean).join(" ") : null,
+      sourceKind,
     });
 
     await db

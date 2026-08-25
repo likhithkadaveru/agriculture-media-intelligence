@@ -108,12 +108,13 @@ function Metric({ label, value, detail }: { label: string; value: string; detail
 
 export default async function NowPage() {
   const { db } = await getDb();
-  const [env, findings] = await Promise.all([getEnvironmentInfo(db), getActiveFindings(db)]);
+  const env = await getEnvironmentInfo(db);
+  const findings = await getActiveFindings(db, env.activeOrigin);
   const [hero, ...rest] = findings;
 
   return (
     <div className="min-h-screen">
-      <SiteHeader origins={env.origins} lastGeneratedAt={env.lastGeneratedAt} />
+      <SiteHeader activeOrigin={env.activeOrigin} lastGeneratedAt={env.lastGeneratedAt} current="/" />
 
       <main className="mx-auto max-w-[1200px] px-6 pb-24">
         <div className="flex flex-wrap items-baseline justify-between gap-4 border-b border-border py-6">

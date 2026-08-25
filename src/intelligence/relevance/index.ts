@@ -1,15 +1,27 @@
 /**
  * Deterministic relevance gate — runs BEFORE any expensive enrichment.
  *
- * A mention passes only if it is both Telangana-relevant and
- * agriculture-relevant according to the ontology. This is intentionally
- * conservative and fully explainable: the reason records which term families
- * matched or failed.
+ * Design (revised against live data): the gate is AGRICULTURE-FIRST.
  *
- * Known limitation (documented): pure ontology matching cannot catch every
- * out-of-state false positive (e.g. a Telangana-named entity elsewhere).
- * The LLM enrichment stage re-scores relevance for accepted items; items the
- * gate rejects never reach paid stages.
+ * The first live run showed the original ordering was inverted. Telangana
+ * political content (official channels, CM coverage) is saturated with state
+ * markers and mentions "farmers" once in passing, so it sailed through and
+ * consumed LLM budget; meanwhile genuine Telugu farming content was rejected
+ * for free because it discusses paddy and fertilizer without ever naming the
+ * state. The system was paying to reject noise and discarding signal.
+ *
+ * So:
+ *  1. Agriculture evidence is scored with TITLE WEIGHTING — a real
+ *     agriculture story says so in its title; a passing mention in a press
+ *     release body does not. Content with no agriculture signal is rejected
+ *     deterministically and never reaches the model.
+ *  2. Telangana evidence accepts a weaker regional prior for
+ *     agriculture-dedicated sources, letting genuinely agricultural content
+ *     reach the model, which then judges state relevance from context (see
+ *     the model-confirmation step in intelligence/enrichment/stage.ts).
+ *
+ * This is a recall gate, not the final decision. Precision comes from model
+ * confirmation downstream.
  */
 import {
   AGRICULTURE_MARKERS,
@@ -39,7 +51,6 @@ const OUT_OF_STATE_MARKERS = [
   "bihar",
   "odisha",
   "west bengal",
-  "andhra pradesh",
 ];
 
 export interface RelevanceVerdict {
@@ -58,68 +69,127 @@ export interface RelevanceContext {
    * Telangana-anchored account posting off-topic content is still rejected.
    */
   authorContext?: string | null;
+  /** Title, scored separately: agriculture in the title is a strong signal. */
+  title?: string | null;
+  /**
+   * Source kind from the channel registry (agriculture_programme, creator,
+   * media_organisation, government). Agriculture-dedicated sources get a
+   * regional prior so their content reaches model adjudication.
+   */
+  sourceKind?: string | null;
 }
 
-export function assessRelevance(text: string, context?: RelevanceContext): RelevanceVerdict {
+const AGRICULTURE_FAMILIES = [
+  { id: "agriculture-markers", terms: [AGRICULTURE_MARKERS] },
+  { id: "topics", terms: TOPICS },
+  { id: "crops", terms: CROPS },
+  { id: "inputs", terms: INPUTS },
+  { id: "schemes", terms: SCHEMES },
+  // Only agriculture-specific offices count. The CMO, a district collector or
+  // Civil Supplies appearing in a text says nothing about agriculture — live
+  // data showed "Chief Minister" alone scoring political items as agricultural.
+  {
+    id: "agriculture-entities",
+    terms: GOVERNMENT_ENTITIES.filter((e) => e.agricultureSpecific),
+  },
+];
+
+export function assessRelevance(
+  text: string,
+  context?: RelevanceContext,
+): RelevanceVerdict {
+  const authorContext = context?.authorContext ?? "";
+  const sourceKind = context?.sourceKind ?? "";
+  /*
+   * Title weighting needs a headline to weigh. Short-form content (X-style
+   * posts, brief statements) has no separate title — there the whole text is
+   * the headline, so it is scored as such rather than penalised for lacking
+   * a field the platform never provides.
+   */
+  const SHORT_FORM_CHARS = 500;
+  const title = context?.title ?? (text.length <= SHORT_FORM_CHARS ? text : "");
+
+  /* ---------- agriculture evidence (title-weighted) ---------- */
+
+  const bodyFamilies = AGRICULTURE_FAMILIES.filter((family) =>
+    family.terms.some((term) => termMatches(text, term)),
+  ).map((f) => f.id);
+  const titleFamilies = title
+    ? AGRICULTURE_FAMILIES.filter((family) =>
+        family.terms.some((term) => termMatches(title, term)),
+      ).map((f) => f.id)
+    : [];
+
+  let agricultureRelevance = 0;
+  if (titleFamilies.length > 0) agricultureRelevance += 0.6;
+  if (titleFamilies.length > 1) agricultureRelevance += 0.2;
+  agricultureRelevance += Math.min(0.3, 0.15 * bodyFamilies.length);
+  // An agriculture-dedicated source is itself weak topical evidence.
+  if (sourceKind === "agriculture_programme") agricultureRelevance += 0.15;
+  agricultureRelevance = Math.min(1, agricultureRelevance);
+
+  /* ---------- Telangana evidence ---------- */
+
   const matchedDistricts = matchTerms(text, DISTRICTS).map((d) => d.id);
   const hasTelanganaMarker = termMatches(text, TELANGANA_MARKERS);
   const lower = text.toLowerCase();
   const outOfState = OUT_OF_STATE_MARKERS.filter((s) => lower.includes(s));
-
-  const agricultureHits = [
-    termMatches(text, AGRICULTURE_MARKERS) ? "agriculture-markers" : null,
-    matchTerms(text, TOPICS).length > 0 ? "topics" : null,
-    matchTerms(text, CROPS).length > 0 ? "crops" : null,
-    matchTerms(text, INPUTS).length > 0 ? "inputs" : null,
-    matchTerms(text, SCHEMES).length > 0 ? "schemes" : null,
-    matchTerms(text, GOVERNMENT_ENTITIES).length > 0 ? "government-entities" : null,
-  ].filter((x): x is string => x !== null);
-
-  // Author-level Telangana anchoring (e.g. "Government of Telangana" in the
-  // organisation name) — weaker than in-content evidence.
-  const authorContext = context?.authorContext ?? "";
   const authorAnchored =
     authorContext.length > 0 &&
     (termMatches(authorContext, TELANGANA_MARKERS) ||
       matchTerms(authorContext, DISTRICTS).length > 0);
+  // Telugu agriculture sources cover Telangana and Andhra Pradesh; treat them
+  // as a weak regional prior and let the model decide which state applies.
+  const regionalPrior =
+    sourceKind === "agriculture_programme" || sourceKind === "creator";
 
-  // Telangana relevance: explicit marker or district evidence, weakened when
-  // the text is anchored to another state without any Telangana marker.
   let telanganaRelevance = 0;
   if (hasTelanganaMarker) telanganaRelevance += 0.6;
   if (matchedDistricts.length > 0) telanganaRelevance += 0.5;
   if (authorAnchored) telanganaRelevance += 0.4;
+  if (regionalPrior) telanganaRelevance += 0.4;
   if (outOfState.length > 0 && !hasTelanganaMarker && matchedDistricts.length === 0) {
-    telanganaRelevance = 0;
+    telanganaRelevance = Math.max(0, telanganaRelevance - 0.4);
   } else if (outOfState.length > 0) {
     telanganaRelevance = Math.max(0, telanganaRelevance - 0.3);
   }
   telanganaRelevance = Math.min(1, telanganaRelevance);
 
-  const agricultureRelevance = Math.min(1, agricultureHits.length * 0.35);
+  /* ---------- decision ---------- */
 
-  const accepted = telanganaRelevance >= 0.4 && agricultureRelevance >= 0.35;
+  const accepted = agricultureRelevance >= 0.5 && telanganaRelevance >= 0.4;
 
   const reasonParts: string[] = [];
   reasonParts.push(
-    hasTelanganaMarker || matchedDistricts.length > 0 || authorAnchored
+    agricultureRelevance >= 0.5
+      ? `Agriculture evidence: ${
+          titleFamilies.length > 0 ? `in title [${titleFamilies.join(", ")}]` : "body only"
+        }${bodyFamilies.length > 0 ? `, body [${bodyFamilies.join(", ")}]` : ""}${
+          sourceKind === "agriculture_programme" ? ", agriculture-dedicated source" : ""
+        }`
+      : `Insufficient agriculture evidence (${
+          bodyFamilies.length > 0
+            ? `body-only mention of [${bodyFamilies.join(", ")}]`
+            : "no agriculture terms"
+        })`,
+  );
+  reasonParts.push(
+    hasTelanganaMarker || matchedDistricts.length > 0 || authorAnchored || regionalPrior
       ? `Telangana evidence: ${[
           hasTelanganaMarker ? "state marker" : null,
           matchedDistricts.length > 0 ? `districts [${matchedDistricts.join(", ")}]` : null,
-          authorAnchored ? "author/organisation anchored to Telangana" : null,
+          authorAnchored ? "author anchored to Telangana" : null,
+          regionalPrior && !hasTelanganaMarker && matchedDistricts.length === 0
+            ? "Telugu-region agriculture source (regional prior — model confirms)"
+            : null,
         ]
           .filter(Boolean)
           .join(", ")}`
-      : "No Telangana marker or district found",
+      : "No Telangana marker, district or anchored source",
   );
   if (outOfState.length > 0) {
     reasonParts.push(`out-of-state markers [${outOfState.join(", ")}]`);
   }
-  reasonParts.push(
-    agricultureHits.length > 0
-      ? `agriculture evidence: [${agricultureHits.join(", ")}]`
-      : "no agriculture evidence",
-  );
 
   return {
     accepted,

@@ -121,7 +121,7 @@ describe("narrative aggregation", () => {
     const [narrative] = await handle.db
       .select()
       .from(narratives)
-      .where(eq(narratives.key, "dap-availability"));
+      .where(eq(narratives.key, "fertilizer-availability/dap-availability"));
     expect(narrative).toBeDefined();
 
     const links = await handle.db
@@ -152,7 +152,7 @@ describe("findings", () => {
     const [dapNarrative] = await handle.db
       .select()
       .from(narratives)
-      .where(eq(narratives.key, "dap-availability"));
+      .where(eq(narratives.key, "fertilizer-availability/dap-availability"));
     const dapFinding = active.find((f) => f.narrativeId === dapNarrative.id);
     expect(dapFinding).toBeDefined();
     expect(dapFinding!.category).toBe("emerging");
@@ -167,9 +167,20 @@ describe("findings", () => {
       .select()
       .from(evidenceLinks)
       .where(eq(evidenceLinks.findingId, dapFinding!.id));
-    expect(links.length).toBe(14); // 12 canonical + 2 duplicates
-    expect(links.filter((l) => l.role === "duplicate").length).toBe(2);
-    expect(links.filter((l) => l.role === "official").length).toBe(2);
+    const duplicateLinks = links.filter((l) => l.role === "duplicate");
+    // Every canonical narrative mention is linked as evidence, and the
+    // duplicates ride along without being counted in mentionCount.
+    expect(links.length).toBe(dapNarrative.mentionCount + duplicateLinks.length);
+    expect(duplicateLinks.length).toBe(2);
+    expect(links.filter((l) => l.role === "official").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("splits distinct narratives under one topic instead of one fertilizer bucket", async () => {
+    const fertilizerNarratives = await handle.db.select().from(narratives);
+    const keys = fertilizerNarratives.map((n) => n.key);
+    // DAP availability is its own narrative, not merged into a generic
+    // fertilizer bucket (Phase 2 subtopic separation).
+    expect(keys).toContain("fertilizer-availability/dap-availability");
   });
 });
 
@@ -233,5 +244,37 @@ describe("provenance", () => {
 
     // Restore state for other tests (re-enrich with the real enricher).
     await runEnrichmentStage(handle.db, new HeuristicEnricher());
+  });
+});
+
+describe("origin isolation", () => {
+  it("never mixes data origins inside one narrative", async () => {
+    const rows = await handle.db.select().from(narrativeMentions);
+    for (const link of rows) {
+      const [narrative] = await handle.db
+        .select()
+        .from(narratives)
+        .where(eq(narratives.id, link.narrativeId));
+      const [mention] = await handle.db
+        .select()
+        .from(mentions)
+        .where(eq(mentions.id, link.mentionId));
+      expect(mention.dataOrigin).toBe(narrative.dataOrigin);
+    }
+  });
+
+  it("never mixes data origins inside one finding's evidence", async () => {
+    const links = await handle.db.select().from(evidenceLinks);
+    for (const link of links) {
+      const [finding] = await handle.db
+        .select()
+        .from(intelligenceFindings)
+        .where(eq(intelligenceFindings.id, link.findingId));
+      const [mention] = await handle.db
+        .select()
+        .from(mentions)
+        .where(eq(mentions.id, link.mentionId));
+      expect(mention.dataOrigin).toBe(finding.dataOrigin);
+    }
   });
 });

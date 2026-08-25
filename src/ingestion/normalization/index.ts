@@ -29,16 +29,54 @@ function obj(v: unknown): PayloadRecord {
 
 function normalizeYouTube(item: RawSourceItem, publishedAt: Date | null): NormalizedMention {
   const p = obj(item.payload);
+
+  // RSS-feed entry shape (YouTubeRssConnector).
+  if (p.payloadKind === "youtube-rss-entry") {
+    const title = str(p.title);
+    const description = str(p.description) ?? "";
+    const channel = str(p.channelTitle);
+    const channelKind = str(p.channelKind);
+    return {
+      platform: "youtube",
+      externalId: item.externalId,
+      url: str(p.url),
+      publishedAt: publishedAt ?? (str(p.publishedAt) ? new Date(str(p.publishedAt)!) : null),
+      author: channel
+        ? {
+            name: channel,
+            handle: null,
+            bio: channelKind ? `channel-kind:${channelKind}` : null,
+            isOfficialAccount: channelKind === "government",
+          }
+        : null,
+      title,
+      originalText: [title, description].filter(Boolean).join("\n\n"),
+      engagement: {
+        views: num(p.viewCount),
+        likes: num(p.likeCount),
+        comments: null,
+        reposts: null,
+      },
+      thumbnailUrl: str(p.thumbnailUrl),
+      transcriptStatus: "unavailable",
+      dataOrigin: item.dataOrigin,
+    };
+  }
+
+  // YouTube Data API v3 video-resource shape.
   const snippet = obj(p.snippet);
   const stats = obj(p.statistics);
+  const thumbnails = obj(snippet.thumbnails);
+  const bestThumb =
+    str(obj(thumbnails.high).url) ?? str(obj(thumbnails.medium).url) ?? str(obj(thumbnails.default).url);
   const title = str(snippet.title);
   const description = str(snippet.description) ?? "";
   const channel = str(snippet.channelTitle);
   return {
     platform: "youtube",
     externalId: item.externalId,
-    url: str(p.url),
-    publishedAt,
+    url: str(p.url) ?? `https://www.youtube.com/watch?v=${item.externalId}`,
+    publishedAt: publishedAt ?? (str(snippet.publishedAt) ? new Date(str(snippet.publishedAt)!) : null),
     author: channel
       ? {
           name: channel,
@@ -55,6 +93,8 @@ function normalizeYouTube(item: RawSourceItem, publishedAt: Date | null): Normal
       comments: num(stats.commentCount),
       reposts: null,
     },
+    thumbnailUrl: bestThumb,
+    transcriptStatus: "unavailable",
     dataOrigin: item.dataOrigin,
   };
 }

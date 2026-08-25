@@ -192,6 +192,12 @@ export const mentions = pgTable(
 
     language: text("language"), // te | en | mixed | other — null until detected
     originalText: text("original_text").notNull(),
+    /**
+     * Author-written content with channel boilerplate removed (derived, not
+     * source). Relevance, dedup and enrichment read this; original_text is
+     * kept verbatim as evidence.
+     */
+    contentText: text("content_text"),
     englishTranslation: text("english_translation"),
     translationProvenance: text("translation_provenance"), // llm | seed_authored
     title: text("title"),
@@ -224,6 +230,10 @@ export const mentions = pgTable(
       comments?: number | null;
       reposts?: number | null;
     }>(),
+
+    thumbnailUrl: text("thumbnail_url"),
+    /** unavailable | available | not_applicable — never fabricated. */
+    transcriptStatus: text("transcript_status"),
 
     classificationConfidence: doublePrecision("classification_confidence"),
     isOfficialVoice: boolean("is_official_voice").notNull().default(false),
@@ -278,6 +288,8 @@ export const narratives = pgTable(
       .$type<Record<string, Record<string, number>>>()
       .notNull()
       .default({}),
+    /** emerging | rising | stable | falling | resurfacing (observation-window based). */
+    trendStatus: text("trend_status"),
     confidence: doublePrecision("confidence"),
     dataOrigin: dataOriginEnum("data_origin").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -348,6 +360,56 @@ export const evidenceLinks = pgTable(
   },
   (t) => [uniqueIndex("evidence_links_idx").on(t.findingId, t.mentionId)],
 );
+
+/**
+ * Query scheduler — quota-aware collection planning. Rows describe both
+ * ontology-generated search queries (youtube-api) and channel polls
+ * (youtube-rss, query = channel id). Yield statistics accumulate so poor
+ * queries can be deprioritized.
+ */
+export const collectionQueries = pgTable(
+  "collection_queries",
+  {
+    id: uuid("id").primaryKey(),
+    /** Connector key this query is for (e.g. youtube-api, youtube-rss). */
+    connector: text("connector").notNull(),
+    query: text("query").notNull(),
+    /** Human label, e.g. channel name for RSS polls. */
+    label: text("label"),
+    language: text("language"), // te | en | mixed | null
+    /** a = every cycle, b = rotated, c = long-tail rotation. */
+    tier: text("tier").notNull().default("b"),
+    priority: integer("priority").notNull().default(50),
+    frequencyHours: integer("frequency_hours").notNull().default(24),
+    expectedNoise: text("expected_noise"), // low | medium | high
+    enabled: boolean("enabled").notNull().default(true),
+    lastRunAt: timestamp("last_run_at", { withTimezone: true }),
+    nextRunAt: timestamp("next_run_at", { withTimezone: true }),
+    /** Cumulative yield stats. */
+    runsCount: integer("runs_count").notNull().default(0),
+    itemsReturned: integer("items_returned").notNull().default(0),
+    relevantItems: integer("relevant_items").notNull().default(0),
+    duplicateItems: integer("duplicate_items").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("collection_queries_key_idx").on(t.connector, t.query)],
+);
+
+/**
+ * Verified snapshots — frozen copies of a real (live) intelligence state,
+ * suitable for offline/demo use. Copied rows carry
+ * data_origin = 'verified_snapshot'; live rows are never mutated.
+ * Phase 2 supports one active snapshot at a time (creating a new one
+ * replaces the previous copy; the manifest rows record history).
+ */
+export const verifiedSnapshots = pgTable("verified_snapshots", {
+  id: uuid("id").primaryKey(),
+  label: text("label").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  /** Row counts, source list, time range — the reproducibility manifest. */
+  manifest: jsonb("manifest").notNull(),
+  status: text("status").notNull().default("active"), // active | replaced
+});
 
 export const processingEvents = pgTable(
   "processing_events",

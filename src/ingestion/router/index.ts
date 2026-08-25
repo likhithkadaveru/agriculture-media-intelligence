@@ -18,6 +18,7 @@ import {
   sources,
 } from "@/db/schema";
 import type { NormalizedMention, SourceConnector } from "@/types/core";
+import { deriveContentText } from "@/ingestion/normalization/boilerplate";
 import { recordEvent } from "@/lib/events";
 
 const CONNECTOR_REGISTRY = new Map<string, () => SourceConnector>();
@@ -190,8 +191,11 @@ export async function runCollection(
       authorId,
       title: normalized.title,
       originalText: normalized.originalText,
+      contentText: deriveContentText(normalized.title, normalized.originalText),
       englishTranslation: null,
       engagement: normalized.engagement,
+      thumbnailUrl: normalized.thumbnailUrl ?? null,
+      transcriptStatus: normalized.transcriptStatus ?? null,
       isOfficialVoice: normalized.author?.isOfficialAccount ?? false,
       status: "normalized",
       dataOrigin: normalized.dataOrigin,

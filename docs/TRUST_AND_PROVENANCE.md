@@ -1,6 +1,6 @@
 # Trust and provenance
 
-_Phase 1. These are implemented guarantees, verified by tests where noted._
+_Phase 2. These are implemented guarantees, verified by tests where noted._
 
 ## Principles
 
@@ -41,6 +41,18 @@ _Phase 1. These are implemented guarantees, verified by tests where noted._
    failure event, never a UI artifact. _(tested: schema validation,
    failure-event recording)_
 
+## Source text is never altered
+
+Two derived text fields exist, and neither replaces the source:
+
+- `original_text` — exactly what the platform returned, shown as evidence.
+- `content_text` — the same text with channel boilerplate (subscribe CTAs,
+  URLs, hashtag blocks, SEO keyword tails) removed. Relevance, deduplication
+  and enrichment read this; the reader always sees the original.
+
+Narrowing what the *intelligence layer* reads is not the same as editing the
+record. The raw payload remains immutable in `raw_items` regardless.
+
 ## data_origin discipline
 
 Every data-bearing row carries `data_origin`:
@@ -48,8 +60,27 @@ Every data-bearing row carries `data_origin`:
 | value | meaning |
 |---|---|
 | `live` | collected from real public sources by a live connector |
-| `verified_snapshot` | a frozen, timestamped capture of previously-collected real data (Phase 2) |
+| `verified_snapshot` | a frozen, timestamped copy of a real live state |
 | `demo_seed` | fictional development corpus |
+
+**Origins never mix inside one conclusion.** The narrative stage partitions
+its pool by origin before deriving anything, so a narrative — and therefore
+any finding built on it — draws on exactly one kind of evidence. The UI's
+environment ribbon is computed from the lineage of the *active findings*, not
+from whatever happens to sit in the database, so the label always describes
+what is on screen: **Live public data**, **Verified snapshot**, or
+**Development data**.
+
+## Verified snapshots
+
+`npm run snapshot:create -- --label "..."` copies the live intelligence state
+into a parallel set of rows carrying `data_origin = 'verified_snapshot'`:
+collection runs, raw payloads, authors, mentions with every classification and
+confidence, narratives, narrative snapshots, findings, evidence links and the
+processing-event trail. Live rows are never mutated and never deleted; the
+snapshot is an independent, self-consistent copy in which "open the raw
+payload" and "open the original source" both still resolve. A manifest records
+row counts, source platforms, evidence time range and narrative keys.
 
 - The seed corpus is fictional end to end: invented authors and outlets with
   "(demo)" suffixes, `demo.invalid` URLs, invented engagement numbers. It

@@ -90,6 +90,9 @@ export interface NormalizedMention {
   title: string | null;
   originalText: string;
   engagement: Engagement | null;
+  thumbnailUrl?: string | null;
+  /** unavailable | available | not_applicable — never fabricated. */
+  transcriptStatus?: string | null;
   dataOrigin: DataOrigin;
   /**
    * Development-only: translations authored alongside demo_seed corpus items.

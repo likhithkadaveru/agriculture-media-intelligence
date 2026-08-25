@@ -12,7 +12,16 @@ import type { Db } from "@/db/client";
 import { locations } from "@/db/schema";
 import { DISTRICTS } from "@/ontology";
 import { registerConnector, runCollection } from "@/ingestion/router";
+import {
+  getDueQueries,
+  recordQueryRun,
+  seedCollectionQueries,
+  updateQueryYieldStats,
+} from "@/ingestion/router/scheduler";
 import { DemoSeedConnector } from "@/ingestion/connectors/demo-seed";
+import { YouTubeRssConnector } from "@/ingestion/connectors/youtube-rss";
+import { YouTubeApiConnector } from "@/ingestion/connectors/youtube-api";
+import { adjudicateNarratives } from "@/intelligence/narratives/adjudicate";
 import { runRelevanceStage } from "@/intelligence/relevance/stage";
 import { runEnrichmentStage } from "@/intelligence/enrichment/stage";
 import { getEnricher } from "@/intelligence/enrichment/llm";
@@ -31,6 +40,8 @@ export interface JobContext {
 export type JobResult = Record<string, unknown>;
 
 registerConnector("demo-seed", () => new DemoSeedConnector());
+registerConnector("youtube-rss", () => new YouTubeRssConnector());
+registerConnector("youtube-api", () => new YouTubeApiConnector());
 
 /** Seed the locations table from the ontology (idempotent). */
 export async function ensureLocations(db: Db): Promise<void> {
@@ -75,13 +86,50 @@ export const jobs = {
     return { ...result };
   },
 
+  /**
+   * Live collection: seed the query plan, then run every due query for each
+   * configured connector (RSS always; API only when a key exists).
+   */
+  async collectLive(ctx: JobContext): Promise<JobResult> {
+    await ensureLocations(ctx.db);
+    const { seeded } = await seedCollectionQueries(ctx.db);
+    if (seeded > 0) ctx.log(`scheduler: seeded ${seeded} collection queries`);
+
+    const results: Record<string, { queries: number; collected: number; newMentions: number }> = {};
+    const connectors = ["youtube-rss", ...(process.env.YOUTUBE_API_KEY ? ["youtube-api"] : [])];
+
+    for (const connectorKey of connectors) {
+      const limit = connectorKey === "youtube-rss" ? 20 : 8; // API quota guard
+      const due = await getDueQueries(ctx.db, connectorKey, limit);
+      let collected = 0;
+      let newMentions = 0;
+      for (const query of due) {
+        try {
+          const result = await runCollection(ctx.db, connectorKey, query.query);
+          collected += result.collected;
+          newMentions += result.newMentions;
+          await recordQueryRun(ctx.db, query.id, result.collected, query.frequencyHours);
+          ctx.log(
+            `${connectorKey} · ${query.label ?? query.query}: ${result.collected} items, ${result.newMentions} new`,
+          );
+        } catch (error) {
+          ctx.log(
+            `${connectorKey} · ${query.label ?? query.query} FAILED: ${error instanceof Error ? error.message : error}`,
+          );
+        }
+      }
+      results[connectorKey] = { queries: due.length, collected, newMentions };
+    }
+    return results;
+  },
+
   /** Full intelligence pass: relevance → enrichment → dedup → narratives → findings. */
   async runIntelligence(ctx: JobContext): Promise<JobResult> {
     const relevance = await runRelevanceStage(ctx.db);
     ctx.log(
       `relevance: ${relevance.assessed} assessed, ${relevance.accepted} accepted, ${relevance.rejected} rejected`,
     );
-    const enricher = ctx.enricher ?? getEnricher();
+    const enricher = ctx.enricher ?? (await getEnricher());
     ctx.log(`enrichment: using ${enricher.provider}/${enricher.model}`);
     const enrichment = await runEnrichmentStage(ctx.db, enricher);
     ctx.log(
@@ -95,8 +143,15 @@ export const jobs = {
     ctx.log(
       `narratives: ${narrative.narrativesUpdated} updated, ${narrative.mentionsAssigned} mentions assigned`,
     );
+    if (ctx.enricher === undefined) {
+      const adjudication = await adjudicateNarratives(ctx.db, { log: ctx.log });
+      if (adjudication.adjudicated > 0) {
+        ctx.log(`adjudication: ${adjudication.adjudicated} narratives refined`);
+      }
+    }
     const findings = await runFindingStage(ctx.db);
     ctx.log(`findings: ${findings.generated} generated`);
+    await updateQueryYieldStats(ctx.db);
     return { relevance, enrichment, dedup, narrative, findings };
   },
 } satisfies Record<string, (ctx: JobContext) => Promise<JobResult>>;

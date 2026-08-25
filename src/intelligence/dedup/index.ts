@@ -53,11 +53,65 @@ export function jaccard(a: Set<string>, b: Set<string>): number {
  */
 export const NEAR_DUP_BIGRAM_THRESHOLD = 0.4;
 export const NEAR_DUP_UNIGRAM_THRESHOLD = 0.6;
+/**
+ * Title gate. Live data showed body similarity alone is not sufficient:
+ * distinct stories from one channel share boilerplate and house style. Two
+ * items are only near-duplicates if their TITLES also substantially agree —
+ * a different headline means a different story, which protects independent
+ * voices reporting the same issue from being collapsed.
+ */
+export const NEAR_DUP_TITLE_THRESHOLD = 0.3;
 
-export function nearDuplicateSimilarity(a: string, b: string): number {
-  const bigram = jaccard(shingles(a, 2), shingles(b, 2));
+export interface DedupText {
+  title: string | null;
+  body: string;
+}
+
+/**
+ * Broadcast-title stopwords. Telugu news titles are pipe-separated and end
+ * in channel branding ("… | V6 News"); these tokens otherwise grant every
+ * pair from one channel free similarity.
+ */
+const TITLE_STOPWORDS = new Set([
+  "live",
+  "news",
+  "tv",
+  "telugu",
+  "latest",
+  "today",
+  "update",
+  "updates",
+  "breaking",
+  "exclusive",
+  "full",
+  "video",
+  "top",
+  "hd",
+]);
+
+/**
+ * The headline core: the first pipe-separated segment (where Telugu news
+ * titles carry the actual story), minus broadcast stopwords.
+ */
+export function headlineCore(title: string): Set<string> {
+  const firstSegment = title.split("|")[0];
+  const tokens = normalizeForHash(firstSegment).split(" ").filter(Boolean);
+  return new Set(tokens.filter((t) => !TITLE_STOPWORDS.has(t) && t.length > 1));
+}
+
+export function titleSimilarity(a: string | null, b: string | null): number {
+  if (!a || !b) return 1; // no title to disagree on (e.g. short posts)
+  const coreA = headlineCore(a);
+  const coreB = headlineCore(b);
+  if (coreA.size === 0 || coreB.size === 0) return 1;
+  return jaccard(coreA, coreB);
+}
+
+export function nearDuplicateSimilarity(a: DedupText, b: DedupText): number {
+  if (titleSimilarity(a.title, b.title) < NEAR_DUP_TITLE_THRESHOLD) return 0;
+  const bigram = jaccard(shingles(a.body, 2), shingles(b.body, 2));
   if (bigram < NEAR_DUP_BIGRAM_THRESHOLD) return 0;
-  const unigram = jaccard(shingles(a, 1), shingles(b, 1));
+  const unigram = jaccard(shingles(a.body, 1), shingles(b.body, 1));
   if (unigram < NEAR_DUP_UNIGRAM_THRESHOLD) return 0;
   return bigram;
 }
@@ -74,10 +128,12 @@ export async function runDedupStage(db: Db): Promise<DedupStageResult> {
     .from(mentions)
     .where(eq(mentions.status, "enriched"));
 
-  // Ensure hashes exist.
+  // Hash the boilerplate-stripped text so identical promo blocks cannot
+  // make distinct items collide.
+  const dedupTextOf = (m: (typeof enriched)[number]) => m.contentText ?? m.originalText;
   for (const m of enriched) {
     if (!m.contentHash) {
-      m.contentHash = contentHash(m.originalText);
+      m.contentHash = contentHash(dedupTextOf(m));
       await db
         .update(mentions)
         .set({ contentHash: m.contentHash, updatedAt: new Date() })
@@ -110,7 +166,10 @@ export async function runDedupStage(db: Db): Promise<DedupStageResult> {
     let nearCanonical: (typeof ordered)[number] | null = null;
     let bestSimilarity = 0;
     for (const c of canonicals) {
-      const similarity = nearDuplicateSimilarity(m.originalText, c.originalText);
+      const similarity = nearDuplicateSimilarity(
+        { title: m.title, body: dedupTextOf(m) },
+        { title: c.title, body: dedupTextOf(c) },
+      );
       if (similarity > bestSimilarity) {
         nearCanonical = c;
         bestSimilarity = similarity;

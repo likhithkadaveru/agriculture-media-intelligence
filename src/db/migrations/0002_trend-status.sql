@@ -1,0 +1,1 @@
+ALTER TABLE "narratives" ADD COLUMN "trend_status" text;

@@ -138,7 +138,11 @@ export class HeuristicEnricher implements Enricher {
   async enrich(input: EnrichmentInput): Promise<EnrichmentResult> {
     const text = [input.title, input.originalText].filter(Boolean).join("\n");
     const relevance = assessRelevance(text, {
+      title: input.title,
       authorContext: [input.authorName, input.authorBio].filter(Boolean).join(" "),
+      sourceKind: input.authorBio?.startsWith("channel-kind:")
+        ? input.authorBio.slice("channel-kind:".length)
+        : null,
     });
 
     const topics = matchTerms(text, TOPICS);

@@ -51,7 +51,7 @@ export async function runEnrichmentStage(
       const result = await enricher.enrich({
         platform: mention.platform,
         title: mention.title,
-        originalText: mention.originalText,
+        originalText: mention.contentText ?? mention.originalText,
         authorName: author?.name ?? null,
         authorBio: author?.bio ?? null,
         isOfficialAccount: author?.isOfficial ?? false,
@@ -59,6 +59,48 @@ export async function runEnrichmentStage(
         seedTranslation: seedTranslations.get(mention.id) ?? null,
       });
       const durationMs = Date.now() - started;
+
+      /*
+       * Two-stage relevance. The deterministic gate is recall-oriented and
+       * cannot judge SUBSTANCE: live data showed political speech that merely
+       * name-drops agriculture passing it (e.g. official statements listing
+       * farmer welfare among many topics). The model re-scores relevance on
+       * the same 0..1 scale, and an item that fails confirmation is demoted
+       * to rejected rather than reaching narratives. Model-only enrichers
+       * (not the deterministic one) perform this check.
+       */
+      if (enricher.provider !== "heuristic") {
+        const substantive =
+          result.telanganaRelevance >= 0.5 && result.agricultureRelevance >= 0.5;
+        if (!substantive) {
+          await db
+            .update(mentions)
+            .set({
+              language: result.language,
+              telanganaRelevance: result.telanganaRelevance,
+              agricultureRelevance: result.agricultureRelevance,
+              relevanceStatus: "rejected",
+              relevanceReason: `Model relevance confirmation failed (Telangana ${result.telanganaRelevance.toFixed(2)}, agriculture ${result.agricultureRelevance.toFixed(2)}); deterministic gate had accepted on keyword evidence`,
+              status: "rejected",
+              summary: result.summary,
+              updatedAt: new Date(),
+            })
+            .where(eq(mentions.id, mention.id));
+          await recordEvent(db, "RELEVANCE_REJECTED", {
+            mentionId: mention.id,
+            rawItemId: mention.rawItemId,
+            detail: {
+              stage: "model_confirmation",
+              telanganaRelevance: result.telanganaRelevance,
+              agricultureRelevance: result.agricultureRelevance,
+              provider: enricher.provider,
+              model: enricher.model,
+            },
+          });
+          succeeded++;
+          continue;
+        }
+      }
 
       const isOfficialVoice = result.authorType === "government";
       const enrichmentMeta = {
