@@ -123,10 +123,33 @@ export interface DedupStageResult {
 }
 
 export async function runDedupStage(db: Db): Promise<DedupStageResult> {
-  const enriched = await db
-    .select()
-    .from(mentions)
-    .where(eq(mentions.status, "enriched"));
+  const all = await db.select().from(mentions).where(eq(mentions.status, "enriched"));
+
+  /*
+   * Deduplicate WITHIN each data origin, never across. A verified-snapshot
+   * copy is byte-identical to the live mention it was copied from, but it is
+   * not a duplicate of it — the two belong to separate, self-consistent
+   * universes. Comparing across origins would mark an entire snapshot as
+   * duplicate content and hollow it out.
+   */
+  const origins = [...new Set(all.map((m) => m.dataOrigin))];
+  const totals: DedupStageResult = { examined: 0, exactDuplicates: 0, nearDuplicates: 0 };
+  for (const origin of origins) {
+    const result = await dedupWithinOrigin(
+      db,
+      all.filter((m) => m.dataOrigin === origin),
+    );
+    totals.examined += result.examined;
+    totals.exactDuplicates += result.exactDuplicates;
+    totals.nearDuplicates += result.nearDuplicates;
+  }
+  return totals;
+}
+
+async function dedupWithinOrigin(
+  db: Db,
+  enriched: (typeof mentions.$inferSelect)[],
+): Promise<DedupStageResult> {
 
   // Hash the boilerplate-stripped text so identical promo blocks cannot
   // make distinct items collide.

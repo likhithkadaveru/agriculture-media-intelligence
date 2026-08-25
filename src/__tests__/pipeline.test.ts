@@ -5,6 +5,7 @@
  */
 import { beforeAll, afterAll, describe, expect, it } from "vitest";
 import { and, eq } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
 import { createDb, type DbHandle } from "@/db/client";
 import {
   evidenceLinks,
@@ -276,5 +277,50 @@ describe("origin isolation", () => {
         .where(eq(mentions.id, link.mentionId));
       expect(mention.dataOrigin).toBe(finding.dataOrigin);
     }
+  });
+});
+
+describe("deduplication scoping", () => {
+  it("does not treat a verified-snapshot copy as a duplicate of its live original", async () => {
+    // A snapshot copy is byte-identical to the mention it was copied from.
+    // Deduplicating across origins would hollow out every snapshot.
+    const { runDedupStage } = await import("@/intelligence/dedup");
+    const [source] = await handle.db
+      .select()
+      .from(mentions)
+      .where(eq(mentions.externalId, "seed-x-001"));
+
+    // A snapshot copies raw items too (one mention per raw item), so the
+    // copy gets its own raw row exactly as createVerifiedSnapshot does.
+    const [sourceRaw] = await handle.db
+      .select()
+      .from(rawItems)
+      .where(eq(rawItems.id, source.rawItemId));
+    const rawCopyId = randomUUID();
+    await handle.db.insert(rawItems).values({
+      ...sourceRaw,
+      id: rawCopyId,
+      dataOrigin: "verified_snapshot",
+    });
+
+    const copyId = randomUUID();
+    await handle.db.insert(mentions).values({
+      ...source,
+      id: copyId,
+      rawItemId: rawCopyId,
+      dataOrigin: "verified_snapshot",
+      status: "enriched",
+      duplicateOfMentionId: null,
+      duplicateType: null,
+    });
+
+    await runDedupStage(handle.db);
+
+    const [copy] = await handle.db.select().from(mentions).where(eq(mentions.id, copyId));
+    expect(copy.status).not.toBe("duplicate");
+    expect(copy.duplicateOfMentionId).toBeNull();
+
+    await handle.db.delete(mentions).where(eq(mentions.id, copyId));
+    await handle.db.delete(rawItems).where(eq(rawItems.id, rawCopyId));
   });
 });
