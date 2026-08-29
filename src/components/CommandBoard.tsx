@@ -2,11 +2,12 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import type { BriefItem, MediaItem } from "@/db/queries";
+import type { BriefItem, CoverageItem, MediaItem } from "@/db/queries";
 import type { FindingComponents } from "@/intelligence/findings/stage";
 import type { CoverageDistrict } from "@/components/StateMap";
 import { StateMap } from "@/components/StateMap";
 import { MediaCarousel } from "@/components/MediaCarousel";
+import { CoverageFeed } from "@/components/CoverageFeed";
 import { MixBar } from "@/components/viz";
 import { VOICE_CLASSES, PLATFORM_LABELS, formatNumber, groupVoiceMix } from "@/lib/format";
 
@@ -30,6 +31,7 @@ export interface BoardData {
   components: Record<string, FindingComponents>;
   coverage: CoverageDistrict[];
   media: MediaItem[];
+  coverage_feed: CoverageItem[];
   voiceMix: Record<string, number>;
   sourceMix: Record<string, number>;
   unlocatedCount: number;
@@ -77,6 +79,13 @@ export function CommandBoard({ data }: { data: BoardData }) {
     // reads that as "broken", not as "nothing matched".
     return filtered.length > 0 ? filtered : data.media;
   }, [lens, data.media]);
+
+  const coverageFeed = useMemo(() => {
+    if (lens === "all") return data.coverage_feed;
+    const wanted = lens === "concerns" ? "critical" : "supportive";
+    const filtered = data.coverage_feed.filter((c) => c.stance === wanted);
+    return filtered.length > 0 ? filtered : data.coverage_feed;
+  }, [lens, data.coverage_feed]);
 
   const grouped = groupVoiceMix(data.voiceMix);
   const voiceSegments = VOICE_CLASSES.map((vc) => ({
@@ -199,6 +208,12 @@ export function CommandBoard({ data }: { data: BoardData }) {
           </div>
         </div>
       </section>
+
+      {coverageFeed.length > 0 && (
+        <div className="mt-12">
+          <CoverageFeed items={coverageFeed} />
+        </div>
+      )}
 
       {media.length > 0 && (
         <div className="mt-12 border-t border-border pt-8">

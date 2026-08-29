@@ -821,3 +821,84 @@ export async function getCoverageByDistrict(
     };
   });
 }
+
+export interface CoverageItem {
+  id: string;
+  headline: string | null;
+  translation: string | null;
+  url: string | null;
+  outlet: string | null;
+  platform: string;
+  publishedAt: Date | null;
+  language: string | null;
+  district: string | null;
+  stance: string | null;
+  topics: string[];
+  narrativeId: string | null;
+  narrativeTitle: string | null;
+}
+
+/**
+ * Press and broadcast coverage — the clippings digest.
+ *
+ * Separate from the media strip on purpose. The strip is visual and works
+ * for video; written coverage is scanned, not looked at, so it wants a
+ * dense list an officer can run an eye down.
+ */
+export async function getCoverageFeed(
+  db: Db,
+  activeOrigin: string | null,
+  limit = 30,
+): Promise<CoverageItem[]> {
+  const rows = await db
+    .select()
+    .from(mentions)
+    .where(eq(mentions.relevanceStatus, "accepted"))
+    .orderBy(desc(mentions.publishedAt));
+
+  const scoped = rows
+    .filter((m) => (!activeOrigin || m.dataOrigin === activeOrigin) && m.status !== "duplicate")
+    .slice(0, limit);
+  if (scoped.length === 0) return [];
+
+  const authorIds = scoped.map((m) => m.authorId).filter((x): x is string => x !== null);
+  const authorRows = authorIds.length
+    ? await db.select().from(authors).where(inArray(authors.id, authorIds))
+    : [];
+  const authorById = new Map(authorRows.map((a) => [a.id, a]));
+
+  const links = await db
+    .select()
+    .from(narrativeMentions)
+    .where(inArray(narrativeMentions.mentionId, scoped.map((m) => m.id)));
+  const narrativeRows = links.length
+    ? await db
+        .select()
+        .from(narratives)
+        .where(inArray(narratives.id, links.map((l) => l.narrativeId)))
+    : [];
+  const narrativeById = new Map(narrativeRows.map((n) => [n.id, n]));
+  const byMention = new Map<string, string>();
+  for (const l of links) {
+    if (l.role !== "duplicate" && !byMention.has(l.mentionId)) byMention.set(l.mentionId, l.narrativeId);
+  }
+
+  return scoped.map((m) => {
+    const nid = byMention.get(m.id) ?? null;
+    return {
+      id: m.id,
+      headline: m.title ?? m.originalText.split("\n")[0].slice(0, 160),
+      translation: m.englishTranslation,
+      url: m.url,
+      outlet: m.authorId ? (authorById.get(m.authorId)?.name ?? null) : null,
+      platform: m.platform,
+      publishedAt: m.publishedAt,
+      language: m.language,
+      district: m.district,
+      stance: m.stance,
+      topics: m.topics,
+      narrativeId: nid,
+      narrativeTitle: nid ? (narrativeById.get(nid)?.title ?? null) : null,
+    };
+  });
+}

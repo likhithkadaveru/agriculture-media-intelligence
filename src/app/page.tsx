@@ -1,5 +1,5 @@
 import { getDb } from "@/db/client";
-import { getCommandView, getCoverageByDistrict } from "@/db/queries";
+import { getCommandView, getCoverageByDistrict, getCoverageFeed } from "@/db/queries";
 import type { FindingComponents } from "@/intelligence/findings/stage";
 import { SiteHeader } from "@/components/SiteHeader";
 import { CommandBoard, type BoardData } from "@/components/CommandBoard";
@@ -19,7 +19,10 @@ export default async function CommandPage() {
   const { db } = await getDb();
   const view = await getCommandView(db);
   const { env, brief, findings, districts, media, voiceMix, sourceMix } = view;
-  const coverage = await getCoverageByDistrict(db, env.activeOrigin);
+  const [coverage, coverageFeed] = await Promise.all([
+    getCoverageByDistrict(db, env.activeOrigin),
+    getCoverageFeed(db, env.activeOrigin, 30),
+  ]);
   const season = getSeasonContext();
 
   const components: Record<string, FindingComponents> = {};
@@ -33,6 +36,7 @@ export default async function CommandPage() {
     components,
     coverage,
     media,
+    coverage_feed: coverageFeed,
     voiceMix,
     sourceMix,
     unlocatedCount: districts.unlocatedCount,
