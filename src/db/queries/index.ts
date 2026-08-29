@@ -392,6 +392,8 @@ export interface MediaItem {
   } | null;
   claim: string | null;
   narrativeTitle: string | null;
+  /** Stance toward government — drives the concerns/positive lens. */
+  stance: string | null;
 }
 
 /**
@@ -460,6 +462,7 @@ export async function getMediaItems(
       engagement: m.engagement,
       claim: m.claim,
       narrativeTitle: narrativeByMention.get(m.id) ?? null,
+      stance: m.stance,
     };
   });
 }
