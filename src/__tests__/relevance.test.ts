@@ -65,6 +65,38 @@ describe("relevance gate", () => {
     expect(verdict.reason).toContain("regional prior");
   });
 
+  it("rejects an Andhra Pradesh story that rides in on the regional prior", () => {
+    // The exact leak observed in production: an agriculture-dedicated Telugu
+    // channel covering an AP farmer scored 0.4 on the regional prior alone,
+    // which was precisely the acceptance threshold, with no Telangana
+    // evidence anywhere in the item.
+    const verdict = assessRelevance(
+      "East Godavari farmer explains why lotus farming pays better than paddy.",
+      {
+        title: "Lotus farming better than paddy - by East Godavari farmer | ETV Telugu",
+        authorContext: "ETV Annadata channel-kind:agriculture_programme",
+        sourceKind: "agriculture_programme",
+      },
+    );
+    expect(verdict.accepted).toBe(false);
+    expect(verdict.reason).toContain("east godavari");
+  });
+
+  it("keeps Krishna and Godavari water coverage, which names AP but is Telangana news", () => {
+    // Krishna/Godavari sharing is core Telangana coverage and always names
+    // Andhra Pradesh. An AP mention must cost relevance, never veto it.
+    const verdict = assessRelevance(
+      "Telangana farmers suffer while Krishna and Godavari waters flow to Andhra Pradesh " +
+        "from Polavaram and Pattiseema. Irrigation projects in the state remain unfilled.",
+      {
+        title: "Krishna, Godavari waters: Telangana irrigation row deepens",
+        authorContext: "V6 News Telugu channel-kind:media_organisation",
+        sourceKind: "media_organisation",
+      },
+    );
+    expect(verdict.accepted).toBe(true);
+  });
+
   it("rejects out-of-state agriculture content", () => {
     const verdict = assessRelevance(
       "Punjab announces bonus over MSP for paddy procurement this season.",
