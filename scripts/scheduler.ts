@@ -15,6 +15,7 @@
  * Cron means calling `runCycle` from somewhere else — no connector or
  * intelligence stage changes.
  */
+import "./env";
 import { createDb, type DbHandle } from "@/db/client";
 import { runJob } from "@/ingestion/jobs";
 

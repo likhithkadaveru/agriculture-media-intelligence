@@ -1,4 +1,5 @@
 /** Apply migrations to the configured database (DATABASE_URL or local PGlite). */
+import "./env";
 import { createDb } from "@/db/client";
 
 async function main() {

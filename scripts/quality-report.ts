@@ -3,6 +3,7 @@
  *
  *   npm run quality
  */
+import "./env";
 import { createDb } from "@/db/client";
 import { collectionQueries, mentions, processingEvents } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -14,6 +15,14 @@ function pct(n: number, d: number): string {
 async function main() {
   const handle = await createDb();
   const db = handle.db;
+
+  // Which database this reads is the first thing to know: a report against
+  // the embedded PGlite and one against Neon look identical otherwise.
+  const target =
+    handle.driver === "pg"
+      ? (process.env.DATABASE_URL ?? "").replace(/:[^:@/]*@/, ":***@").split("?")[0]
+      : ".data/pglite";
+  console.log(`database: ${handle.driver} · ${target}`);
 
   const all = await db.select().from(mentions);
   const origins = [...new Set(all.map((m) => m.dataOrigin))];

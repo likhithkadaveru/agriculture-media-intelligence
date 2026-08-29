@@ -159,6 +159,29 @@ export async function getDueQueries(db: Db, connector: string, limit: number) {
     .limit(limit);
 }
 
+/**
+ * Every enabled query for a connector, ignoring cadence.
+ *
+ * getDueQueries answers "what should be polled on schedule right now"; a
+ * backfill asks a different question — "reach as far back as this source
+ * allows, now" — and must not be gated by next_run_at. Using the due filter
+ * for both meant a backfill run shortly after a normal cycle silently
+ * collected nothing from exactly the paid sources that can reach history.
+ */
+export async function getBackfillQueries(db: Db, connector: string, limit: number) {
+  return db
+    .select()
+    .from(collectionQueries)
+    .where(
+      and(
+        eq(collectionQueries.connector, connector),
+        eq(collectionQueries.enabled, true),
+      ),
+    )
+    .orderBy(asc(collectionQueries.tier), desc(collectionQueries.priority))
+    .limit(limit);
+}
+
 export async function recordQueryRun(
   db: Db,
   queryId: string,
@@ -178,15 +201,29 @@ export async function recordQueryRun(
 }
 
 /**
- * Yield pass: attribute relevance/duplicate outcomes back to the queries
- * whose collection runs produced the raw items. Recomputes absolute counts.
+ * Yield pass: attribute collection and relevance/duplicate outcomes back to
+ * the queries whose collection runs produced the raw items.
+ *
+ * Every counter here is recomputed absolutely from collection_runs, which is
+ * the only complete record of what was actually polled. recordQueryRun keeps
+ * these fresh during a cycle by incrementing, but any caller that collects
+ * without recording — or that is added later — would otherwise leave the
+ * yield table silently understated. Deriving the totals makes the pass
+ * self-healing rather than dependent on every call site remembering.
+ *
+ * lastRunAt is only ever moved forward, and nextRunAt is left to
+ * recordQueryRun: a query whose cadence was never recorded should come due
+ * again, not be retroactively suppressed.
  */
 export async function updateQueryYieldStats(db: Db): Promise<void> {
   const queries = await db.select().from(collectionQueries);
   for (const query of queries) {
-    if (query.runsCount === 0) continue;
     const runs = await db
-      .select({ id: collectionRuns.id })
+      .select({
+        id: collectionRuns.id,
+        itemCount: collectionRuns.itemCount,
+        startedAt: collectionRuns.startedAt,
+      })
       .from(collectionRuns)
       .where(
         and(
@@ -195,20 +232,39 @@ export async function updateQueryYieldStats(db: Db): Promise<void> {
         ),
       );
     if (runs.length === 0) continue;
+
+    const itemsReturned = runs.reduce((sum, r) => sum + r.itemCount, 0);
+    const latestRun = runs.reduce(
+      (latest, r) => (latest === null || r.startedAt > latest ? r.startedAt : latest),
+      null as Date | null,
+    );
+
+    let relevant = 0;
+    let duplicates = 0;
     const raw = await db
       .select({ id: rawItems.id })
       .from(rawItems)
       .where(inArray(rawItems.collectionRunId, runs.map((r) => r.id)));
-    if (raw.length === 0) continue;
-    const mentionRows = await db
-      .select({ relevanceStatus: mentions.relevanceStatus, status: mentions.status })
-      .from(mentions)
-      .where(inArray(mentions.rawItemId, raw.map((r) => r.id)));
-    const relevant = mentionRows.filter((m) => m.relevanceStatus === "accepted").length;
-    const duplicates = mentionRows.filter((m) => m.status === "duplicate").length;
+    if (raw.length > 0) {
+      const mentionRows = await db
+        .select({ relevanceStatus: mentions.relevanceStatus, status: mentions.status })
+        .from(mentions)
+        .where(inArray(mentions.rawItemId, raw.map((r) => r.id)));
+      relevant = mentionRows.filter((m) => m.relevanceStatus === "accepted").length;
+      duplicates = mentionRows.filter((m) => m.status === "duplicate").length;
+    }
+
     await db
       .update(collectionQueries)
-      .set({ relevantItems: relevant, duplicateItems: duplicates })
+      .set({
+        runsCount: runs.length,
+        itemsReturned,
+        relevantItems: relevant,
+        duplicateItems: duplicates,
+        ...(latestRun && (!query.lastRunAt || latestRun > query.lastRunAt)
+          ? { lastRunAt: latestRun }
+          : {}),
+      })
       .where(eq(collectionQueries.id, query.id));
   }
 }

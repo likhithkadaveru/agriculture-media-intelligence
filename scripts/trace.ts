@@ -7,6 +7,7 @@
  *   npm run trace                       (traces seed-x-001)
  *   npm run trace -- <external-id>      (e.g. seed-news-001)
  */
+import "./env";
 import { and, eq, inArray } from "drizzle-orm";
 import { createDb } from "@/db/client";
 import {

@@ -7,6 +7,7 @@
  * Idempotent: safe to run repeatedly. Live and seed data stay strictly
  * separated by data_origin at every stage.
  */
+import "./env";
 import { createDb } from "@/db/client";
 import { runJob } from "@/ingestion/jobs";
 

@@ -3,6 +3,7 @@
  *
  *   npm run snapshot:create -- --label "2026-08 Telangana Agriculture Demo"
  */
+import "./env";
 import { createDb } from "@/db/client";
 import { createVerifiedSnapshot } from "@/intelligence/snapshot";
 

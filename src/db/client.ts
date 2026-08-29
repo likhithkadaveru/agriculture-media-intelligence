@@ -38,7 +38,21 @@ export async function createDb(opts?: {
   const migrateOnCreate = opts?.migrateOnCreate ?? true;
 
   if (url && !opts?.memory) {
-    const pool = new Pool({ connectionString: url });
+    /*
+     * keepAlive matters for this workload specifically: the enrichment stage
+     * sits idle ~55s between queries while an LLM call runs, which is long
+     * enough for an intermediary to drop a pooled connection silently.
+     */
+    const pool = new Pool({ connectionString: url, keepAlive: true });
+    /*
+     * A pool with no 'error' listener turns a dropped idle backend into an
+     * uncaught exception that takes the whole process down. Idle-client
+     * failures are recoverable — the pool discards the client and opens a
+     * fresh one on the next query — so log and carry on.
+     */
+    pool.on("error", (error) => {
+      console.error(`[db] idle client error (recovered): ${error.message}`);
+    });
     const db = drizzlePg(pool, { schema });
     if (migrateOnCreate) {
       await migratePg(db, { migrationsFolder: MIGRATIONS_FOLDER });
