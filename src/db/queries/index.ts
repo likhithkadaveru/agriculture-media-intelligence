@@ -366,3 +366,96 @@ async function buildEvidenceItems(
     })),
   }));
 }
+
+export interface MediaItem {
+  id: string;
+  title: string | null;
+  url: string | null;
+  thumbnailUrl: string | null;
+  channel: string | null;
+  authorType: string;
+  publishedAt: Date | null;
+  language: string | null;
+  englishTranslation: string | null;
+  district: string | null;
+  locationConfidence: number | null;
+  topics: string[];
+  engagement: {
+    views?: number | null;
+    likes?: number | null;
+    comments?: number | null;
+    reposts?: number | null;
+  } | null;
+  claim: string | null;
+  narrativeTitle: string | null;
+}
+
+/**
+ * Collected media for the media carousel: relevance-accepted items that
+ * carry a thumbnail, newest first, scoped to the active data origin so the
+ * strip never mixes live footage with development or snapshot content.
+ */
+export async function getMediaItems(
+  db: Db,
+  activeOrigin: string | null,
+  limit = 24,
+): Promise<MediaItem[]> {
+  const rows = await db
+    .select()
+    .from(mentions)
+    .where(eq(mentions.relevanceStatus, "accepted"))
+    .orderBy(desc(mentions.publishedAt));
+
+  const scoped = rows
+    .filter((m) => (activeOrigin ? m.dataOrigin === activeOrigin : true))
+    .filter((m) => m.status !== "duplicate" && m.thumbnailUrl)
+    .slice(0, limit);
+  if (scoped.length === 0) return [];
+
+  const authorIds = scoped.map((m) => m.authorId).filter((x): x is string => x !== null);
+  const authorRows = authorIds.length
+    ? await db.select().from(authors).where(inArray(authors.id, authorIds))
+    : [];
+  const authorById = new Map(authorRows.map((a) => [a.id, a]));
+
+  // Narrative membership, so each card can say what conversation it belongs to.
+  const links = await db
+    .select()
+    .from(narrativeMentions)
+    .where(inArray(narrativeMentions.mentionId, scoped.map((m) => m.id)));
+  const narrativeRows = links.length
+    ? await db
+        .select()
+        .from(narratives)
+        .where(inArray(narratives.id, links.map((l) => l.narrativeId)))
+    : [];
+  const narrativeById = new Map(narrativeRows.map((n) => [n.id, n]));
+  const narrativeByMention = new Map<string, string>();
+  for (const link of links) {
+    const narrative = narrativeById.get(link.narrativeId);
+    if (narrative && !narrativeByMention.has(link.mentionId)) {
+      narrativeByMention.set(link.mentionId, narrative.title);
+    }
+  }
+
+  return scoped.map((m) => {
+    const author = m.authorId ? authorById.get(m.authorId) : undefined;
+    return {
+      id: m.id,
+      title: m.title,
+      url: m.url,
+      thumbnailUrl: m.thumbnailUrl,
+      channel: author?.name ?? null,
+      authorType: author?.authorType ?? "unknown",
+      publishedAt: m.publishedAt,
+      language: m.language,
+      englishTranslation: m.englishTranslation,
+      district: m.district,
+      locationConfidence: m.locationConfidence,
+      topics: m.topics,
+      engagement: m.engagement,
+      claim: m.claim,
+      narrativeTitle: narrativeByMention.get(m.id) ?? null,
+    };
+  });
+}

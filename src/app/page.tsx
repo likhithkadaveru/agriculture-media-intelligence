@@ -1,10 +1,16 @@
 import Link from "next/link";
 import { getDb } from "@/db/client";
-import { getActiveFindings, getEnvironmentInfo, type FindingWithNarrative } from "@/db/queries";
+import {
+  getActiveFindings,
+  getEnvironmentInfo,
+  getMediaItems,
+  type FindingWithNarrative,
+} from "@/db/queries";
 import type { FindingComponents } from "@/intelligence/findings/stage";
 import { SiteHeader } from "@/components/SiteHeader";
 import { CategoryKicker, ConfidenceMeter } from "@/components/badges";
 import { MixBar } from "@/components/viz";
+import { MediaCarousel } from "@/components/MediaCarousel";
 import {
   VOICE_CLASSES,
   formatFullDate,
@@ -109,7 +115,10 @@ function Metric({ label, value, detail }: { label: string; value: string; detail
 export default async function NowPage() {
   const { db } = await getDb();
   const env = await getEnvironmentInfo(db);
-  const findings = await getActiveFindings(db, env.activeOrigin);
+  const [findings, media] = await Promise.all([
+    getActiveFindings(db, env.activeOrigin),
+    getMediaItems(db, env.activeOrigin),
+  ]);
   const [hero, ...rest] = findings;
 
   return (
@@ -148,6 +157,12 @@ export default async function NowPage() {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {media.length > 0 && (
+          <div className="mt-14 border-t border-border pt-8">
+            <MediaCarousel items={media} />
           </div>
         )}
 
