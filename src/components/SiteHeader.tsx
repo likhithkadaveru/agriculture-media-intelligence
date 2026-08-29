@@ -4,17 +4,17 @@ import { formatDateTime } from "@/lib/format";
 const ENVIRONMENTS = {
   live: {
     label: "Live public data",
-    className: "border-[rgba(111,191,142,0.3)] bg-[rgba(111,191,142,0.07)] text-positive",
+    className: "border-[rgba(26,107,69,0.35)] bg-[var(--positive-soft)] text-positive",
     detail: "Collected from public sources. AI interpretation is labelled throughout.",
   },
   verified_snapshot: {
     label: "Verified snapshot",
-    className: "border-[rgba(57,135,229,0.3)] bg-[rgba(57,135,229,0.07)] text-[#7fb2f0]",
+    className: "border-[rgba(29,78,216,0.3)] bg-[rgba(29,78,216,0.06)] text-[#1d4ed8]",
     detail: "Frozen capture of previously collected real public data.",
   },
   demo_seed: {
     label: "Development data",
-    className: "border-[rgba(229,168,59,0.3)] bg-[rgba(229,168,59,0.07)] text-emerging",
+    className: "border-[rgba(138,83,0,0.35)] bg-[var(--attention-soft)] text-emerging",
     detail: "Fictional demo_seed corpus. No real posts, people or claims.",
   },
 } as const;
@@ -41,13 +41,16 @@ export function SiteHeader({
           <span className="ml-2 text-[11px] tracking-normal opacity-70">{env.detail}</span>
         </div>
       )}
-      <header className="masthead-field border-b border-border">
+      <header className="masthead-field masthead-rule bg-surface">
         <div className="mx-auto flex max-w-[1200px] items-end justify-between gap-6 px-6 py-5">
           <Link href="/" className="group">
-            <div className="kicker text-ink-muted">తెలంగాణ · Government of Telangana</div>
-            <div className="headline-serif mt-1 text-[22px] text-ink">
+            <div className="kicker text-seal">తెలంగాణ ప్రభుత్వం · Government of Telangana</div>
+            <div className="headline-serif mt-1 text-[23px] text-ink">
               Agriculture Intelligence
-              <span className="text-ink-muted"> · Command Centre</span>
+              <span className="font-normal text-ink-muted"> · Command Centre</span>
+            </div>
+            <div className="mt-0.5 text-[11.5px] text-ink-faint">
+              Department of Agriculture · Public discourse monitoring
             </div>
           </Link>
           <div className="flex items-end gap-6">

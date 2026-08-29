@@ -1,10 +1,15 @@
 import Link from "next/link";
 import { getDb } from "@/db/client";
-import { getCommandView, type BriefItem, type DistrictSignal } from "@/db/queries";
+import {
+  getCommandView,
+  getCoverageByDistrict,
+  type BriefItem,
+} from "@/db/queries";
 import type { FindingComponents } from "@/intelligence/findings/stage";
 import { SiteHeader } from "@/components/SiteHeader";
 import { MediaCarousel } from "@/components/MediaCarousel";
 import { MixBar } from "@/components/viz";
+import { StateMap } from "@/components/StateMap";
 import { ConfidenceMeter } from "@/components/badges";
 import { getSeasonContext } from "@/ontology/calendar";
 import { DISTRICTS } from "@/ontology";
@@ -15,7 +20,6 @@ import {
   formatFullDate,
   formatNumber,
   groupVoiceMix,
-  percent,
 } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +37,8 @@ export default async function CommandPage() {
   const { db } = await getDb();
   const view = await getCommandView(db);
   const { env, brief, findings, districts, media, voiceMix, sourceMix } = view;
+  const coverageRows = await getCoverageByDistrict(db, env.activeOrigin);
+  const coverage = coverageRows.map((c) => ({ ...c }));
   const season = getSeasonContext();
 
   const [lead, ...rest] = brief.items;
@@ -119,7 +125,7 @@ export default async function CommandPage() {
 
             {/* ---- Going well ---- */}
             {brief.positives.length > 0 && (
-              <section className="mt-10 rounded-lg border border-[rgba(111,191,142,0.26)] bg-[rgba(111,191,142,0.045)] p-6">
+              <section className="mt-10 rounded-lg border border-[rgba(26,107,69,0.28)] bg-[var(--positive-soft)] p-6">
                 <h2 className="kicker text-positive">Going well</h2>
                 <div className="mt-3 grid gap-5 md:grid-cols-3">
                   {brief.positives.map((item) => (
@@ -142,23 +148,15 @@ export default async function CommandPage() {
             )}
 
             {/* ---- Where, and who ---- */}
-            <section className="mt-11 grid gap-9 lg:grid-cols-[1fr_320px]">
+            <section className="mt-11 grid gap-9 lg:grid-cols-[1fr_300px]">
               <div>
                 <SectionHead
                   title="Across the state"
-                  note="Districts with evidence in this collection window."
+                  note="Districts shaded by the balance of favourable and unfavourable coverage. Districts with no collected evidence are left unshaded."
                 />
-                {activeDistricts.length > 0 ? (
-                  <div className="mt-4 grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
-                    {activeDistricts.map((d) => (
-                      <DistrictRow key={d.key} signal={d} />
-                    ))}
-                  </div>
-                ) : (
-                  <p className="mt-4 text-[13.5px] text-ink-muted">
-                    No district-level evidence yet.
-                  </p>
-                )}
+                <div className="mt-5">
+                  <StateMap coverage={coverage} />
+                </div>
                 <p className="mt-4 text-[12px] leading-relaxed text-ink-faint">
                   {formatNumber(districts.unlocatedCount)} items carried no location evidence and
                   are left unassigned rather than distributed to fill the map.{" "}
@@ -338,32 +336,5 @@ function SecondaryItem({
         </Link>
       </div>
     </article>
-  );
-}
-
-function DistrictRow({ signal }: { signal: DistrictSignal }) {
-  const top = signal.topics[0];
-  const narrative = signal.narratives[0];
-  return (
-    <div className="rounded-md border border-border bg-surface px-4 py-3">
-      <div className="flex items-baseline justify-between gap-3">
-        <span className="text-[14px] font-medium text-ink">{signal.name}</span>
-        <span className="metric-number text-[16px] text-ink">{signal.mentionCount}</span>
-      </div>
-      <p className="mt-0.5 text-[11.5px] text-ink-muted">
-        {top ? top.topic.replace(/-/g, " ") : "—"}
-        {signal.criticalShare > 0 && (
-          <span className="text-critical"> · {percent(signal.criticalShare)} critical</span>
-        )}
-      </p>
-      {narrative && (
-        <Link
-          href={`/narratives/${narrative.id}`}
-          className="mt-1 block truncate text-[11.5px] text-ink-faint hover:text-emerging"
-        >
-          {narrative.title}
-        </Link>
-      )}
-    </div>
   );
 }

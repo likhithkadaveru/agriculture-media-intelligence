@@ -5,6 +5,7 @@
  */
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import type { Db } from "@/db/client";
+import { DISTRICTS } from "@/ontology";
 import {
   authors,
   evidenceLinks,
@@ -16,6 +17,9 @@ import {
   processingEvents,
   rawItems,
 } from "@/db/schema";
+
+/** District display name (lowercased) → ontology id, for map joins. */
+const DISTRICT_NAME_TO_ID: [string, string][] = DISTRICTS.map((d) => [d.en.toLowerCase(), d.id]);
 
 export type FindingRow = typeof intelligenceFindings.$inferSelect;
 export type NarrativeRow = typeof narratives.$inferSelect;
@@ -726,4 +730,91 @@ export async function getCommandView(db: Db): Promise<CommandView> {
   }
 
   return { env, brief, findings, districts, media, voiceMix, sourceMix };
+}
+
+export interface CoverageRow {
+  id: string;
+  name: string;
+  nameTe: string | null;
+  total: number;
+  favourable: number;
+  unfavourable: number;
+  neutral: number;
+  balance: number;
+  topTopic: string | null;
+  narrativeId: string | null;
+}
+
+/**
+ * Coverage balance per district, for the state map.
+ *
+ * "Favourable" and "unfavourable" are read from the stance the enrichment
+ * stage already assigned — supportive and critical respectively — not from a
+ * separate sentiment pass. Neutral factual reporting counts as neither, which
+ * is why the three figures are reported separately rather than collapsed
+ * into a single score.
+ */
+export async function getCoverageByDistrict(
+  db: Db,
+  activeOrigin: string | null,
+): Promise<CoverageRow[]> {
+  const rows = await db
+    .select()
+    .from(mentions)
+    .where(eq(mentions.relevanceStatus, "accepted"));
+  const scoped = rows.filter(
+    (m) => (!activeOrigin || m.dataOrigin === activeOrigin) && m.status !== "duplicate" && m.district,
+  );
+
+  const links = await db.select().from(narrativeMentions);
+  const narrativeByMention = new Map<string, string>();
+  for (const l of links) {
+    if (l.role !== "duplicate" && !narrativeByMention.has(l.mentionId)) {
+      narrativeByMention.set(l.mentionId, l.narrativeId);
+    }
+  }
+
+  const nameToId = new Map(DISTRICT_NAME_TO_ID);
+  const acc = new Map<string, CoverageRow & { topics: Map<string, number> }>();
+
+  for (const m of scoped) {
+    const id = nameToId.get(m.district!.toLowerCase());
+    if (!id) continue;
+    let e = acc.get(id);
+    if (!e) {
+      e = {
+        id,
+        name: m.district!,
+        nameTe: null,
+        total: 0,
+        favourable: 0,
+        unfavourable: 0,
+        neutral: 0,
+        balance: 0,
+        topTopic: null,
+        narrativeId: null,
+        topics: new Map(),
+      };
+      acc.set(id, e);
+    }
+    e.total++;
+    if (m.stance === "critical") e.unfavourable++;
+    else if (m.stance === "supportive") e.favourable++;
+    else e.neutral++;
+    for (const t of m.topics) e.topics.set(t, (e.topics.get(t) ?? 0) + 1);
+    if (!e.narrativeId) e.narrativeId = narrativeByMention.get(m.id) ?? null;
+  }
+
+  return [...acc.values()].map((e) => {
+    const directional = e.favourable + e.unfavourable;
+    const { topics, ...rest } = e;
+    const top = [...topics.entries()].sort((a, b) => b[1] - a[1])[0];
+    return {
+      ...rest,
+      topTopic: top ? top[0] : null,
+      // Balance is over directional items only: a district reported factually
+      // is not "neutral-positive", it simply has no directional signal.
+      balance: directional === 0 ? 0 : (e.favourable - e.unfavourable) / directional,
+    };
+  });
 }
