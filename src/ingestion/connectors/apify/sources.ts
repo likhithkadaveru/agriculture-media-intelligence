@@ -169,8 +169,54 @@ export const INSTAGRAM_HASHTAG: ApifySourceSpec = {
   },
 };
 
+
+/**
+ * X / Twitter search — alternate actor.
+ *
+ * Actor: kaitoeasyapi/twitter-x-data-tweet-scraper-pay-per-result-cheapest.
+ * Verified from its published input schema: searchTerms, maxItems (required),
+ * queryType (Latest/Top), since_time/until_time. Note the field names differ
+ * from apidojo's — this is exactly why each source declares its own input
+ * builder rather than sharing one.
+ *
+ * Exists because apidojo/tweet-scraper enforces a free-tier monthly RUN cap
+ * independent of Apify account credit, and exits SUCCEEDED with zero items
+ * once hit. This actor is also cheaper ($0.00025 vs $0.0004 per result).
+ *
+ * The output shape is Twitter-standard and the parser already tolerates both
+ * naming conventions, so it is reused unchanged.
+ */
+export const X_SEARCH_ALT: ApifySourceSpec = {
+  key: "apify-x-search",
+  platform: "x",
+  actorId: "kaitoeasyapi/twitter-x-data-tweet-scraper-pay-per-result-cheapest",
+
+  buildInput(query) {
+    if (!query.query) throw new Error("apify-x-search requires a search term");
+    return {
+      searchTerms: [query.query],
+      maxItems: query.limit ?? X_MAX_ITEMS,
+      // Latest, not Top — an emerging complaint has no engagement yet.
+      queryType: "Latest",
+      ...(query.since
+        ? { since_time: query.since.toISOString().slice(0, 19).replace("T", "_") + "_UTC" }
+        : {}),
+    };
+  },
+
+  parseItem: X_SEARCH.parseItem,
+};
+
+/**
+ * The X source actually used. Swappable by env so a quota wall on one actor
+ * does not require a code change — both were verified against Apify's public
+ * actor API.
+ */
+export const ACTIVE_X_SOURCE: ApifySourceSpec =
+  process.env.APIFY_X_ACTOR === "apidojo" ? X_SEARCH : X_SEARCH_ALT;
+
 /** Sources registered with the connector registry. */
-export const APIFY_SOURCES: ApifySourceSpec[] = [X_SEARCH, INSTAGRAM_HASHTAG];
+export const APIFY_SOURCES: ApifySourceSpec[] = [ACTIVE_X_SOURCE, INSTAGRAM_HASHTAG];
 
 /** Sources the scheduler seeds queries for. */
-export const SCHEDULED_APIFY_SOURCES = [X_SEARCH, INSTAGRAM_HASHTAG];
+export const SCHEDULED_APIFY_SOURCES = [ACTIVE_X_SOURCE, INSTAGRAM_HASHTAG];

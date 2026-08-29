@@ -21,7 +21,7 @@ import { NEWS_FEEDS } from "@/ingestion/connectors/news-rss/feeds";
 import {
   INSTAGRAM_HASHTAGS,
   SCHEDULED_APIFY_SOURCES,
-  X_SEARCH,
+  ACTIVE_X_SOURCE,
 } from "@/ingestion/connectors/apify/sources";
 
 /** Idempotently upsert the planned query set from configuration. */
@@ -111,7 +111,7 @@ export async function seedCollectionQueries(db: Db): Promise<{ seeded: number }>
     // short, specific lists rather than the full generated query set,
     // because both bill per result.
     const terms =
-      source.key === X_SEARCH.key
+      source.key === ACTIVE_X_SOURCE.key
         ? generateCollectionQueries()
             .filter((g) => g.tier === "a")
             .map((g) => ({ query: g.query, language: g.language, priority: g.priority }))
