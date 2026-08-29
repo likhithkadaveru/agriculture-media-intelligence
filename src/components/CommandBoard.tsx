@@ -140,21 +140,24 @@ export function CommandBoard({ data }: { data: BoardData }) {
       </div>
 
       {items.length === 0 ? (
-        <p className="mt-10 text-[14px] text-ink-muted">
-          Nothing in this view right now.
-        </p>
+        <p className="mt-10 text-[14px] text-ink-muted">Nothing in this view right now.</p>
       ) : (
-        <section className="mt-7">
-          <ol className="space-y-3">
-            {items.map((item, i) => (
-              <ItemRow
-                key={item.narrativeId}
-                item={item}
-                index={i}
-                components={data.components[item.narrativeId]}
-              />
-            ))}
-          </ol>
+        <section className="mt-8">
+          {/* The first item carries the weight. A briefing that gives every
+              item equal size forces the reader to do the ranking. */}
+          <LeadItem item={items[0]} components={data.components[items[0].narrativeId]} />
+          {items.length > 1 && (
+            <ol className="mt-4 space-y-2.5">
+              {items.slice(1).map((item, i) => (
+                <ItemRow
+                  key={item.narrativeId}
+                  item={item}
+                  index={i + 2}
+                  components={data.components[item.narrativeId]}
+                />
+              ))}
+            </ol>
+          )}
         </section>
       )}
 
@@ -218,6 +221,96 @@ const TONE: Record<BriefItem["kind"], { label: string; className: string; bar: s
   watch: { label: "Watch", className: "text-ink-muted", bar: "bg-[var(--rule-strong)]" },
   positive: { label: "Going well", className: "text-positive", bar: "bg-[var(--positive)]" },
 };
+
+/**
+ * The lead item. Large display type, generous space, and the metrics spelled
+ * out — this is the thing an officer should read even if they read nothing
+ * else on the page.
+ */
+function LeadItem({
+  item,
+  components,
+}: {
+  item: BriefItem;
+  components?: FindingComponents;
+}) {
+  const tone = TONE[item.kind];
+  return (
+    <Link
+      href={detailHref(item)}
+      className="group block rounded-lg border border-border bg-surface p-8 transition-colors hover:border-[var(--rule-strong)]"
+    >
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <span className={`kicker ${tone.className}`}>{tone.label}</span>
+        {components?.divergenceObserved && (
+          <span className="kicker text-critical">Official ↔ public divergence</span>
+        )}
+        {item.trendStatus && (
+          <span className="kicker text-ink-faint">{item.trendStatus}</span>
+        )}
+      </div>
+
+      <h3 className="headline-serif mt-3 max-w-[24ch] text-[clamp(26px,3.2vw,38px)] leading-[1.1] text-ink group-hover:underline decoration-[var(--rule-strong)] underline-offset-[6px]">
+        {item.headline}
+      </h3>
+
+      <p className="mt-4 max-w-[70ch] text-[15.5px] leading-relaxed text-ink-secondary">
+        {item.line}
+      </p>
+
+      {item.seasonalReason && (
+        <p className="mt-4 max-w-[70ch] border-l-2 border-[var(--attention)] bg-[var(--attention-soft)] py-2 pl-4 text-[13.5px] leading-relaxed text-ink-secondary">
+          <span className="kicker mr-2 text-emerging">Season</span>
+          {item.seasonalReason}
+        </p>
+      )}
+
+      <dl className="mt-6 flex flex-wrap gap-x-10 gap-y-4 border-t border-border pt-5">
+        <LeadStat label="Independent voices" value={String(item.voices)} />
+        {components && (
+          <LeadStat label="Source types" value={String(components.sourceTypeCount)} />
+        )}
+        {item.districts.length > 0 && (
+          <LeadStat
+            label={item.districts.length === 1 ? "District" : "Districts"}
+            value={String(item.districts.length)}
+            detail={item.districts.join(", ")}
+          />
+        )}
+        {components && components.duplicatesExcluded > 0 && (
+          <LeadStat label="Duplicates excluded" value={String(components.duplicatesExcluded)} />
+        )}
+        <span className="ml-auto self-end text-[13px] font-medium text-seal">
+          See the evidence →
+        </span>
+      </dl>
+    </Link>
+  );
+}
+
+function LeadStat({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string;
+  detail?: string;
+}) {
+  return (
+    <div>
+      <dt className="kicker text-ink-faint">{label}</dt>
+      <dd className="metric-number mt-1 text-[26px] leading-none text-ink">
+        {value}
+        {detail && (
+          <span className="ml-2 font-sans text-[12px] font-normal tracking-normal text-ink-muted">
+            {detail}
+          </span>
+        )}
+      </dd>
+    </div>
+  );
+}
 
 /**
  * One row per item. Deliberately a row, not a card: a busy reader scans a

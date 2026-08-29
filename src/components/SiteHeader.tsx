@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SealMark } from "@/components/SealMark";
 import { formatDateTime } from "@/lib/format";
 
 const ENVIRONMENTS = {
@@ -19,11 +20,12 @@ const ENVIRONMENTS = {
   },
 } as const;
 
-
 /**
- * Global masthead. The environment ribbon is computed from the lineage of
- * the active findings, so what the user sees always states which kind of
- * evidence produced it.
+ * Letterhead.
+ *
+ * Deliberately formal: mark, department line, closing rule. The authority of
+ * the page comes from typography and structure rather than ornament, which is
+ * the register a government reader trusts.
  */
 export function SiteHeader({
   activeOrigin,
@@ -41,25 +43,36 @@ export function SiteHeader({
           <span className="ml-2 text-[11px] tracking-normal opacity-70">{env.detail}</span>
         </div>
       )}
-      <header className="masthead-field masthead-rule bg-surface">
-        <div className="mx-auto flex max-w-[1200px] items-end justify-between gap-6 px-6 py-5">
-          <Link href="/" className="group">
-            <div className="kicker text-seal">తెలంగాణ ప్రభుత్వం · Government of Telangana</div>
-            <div className="headline-serif mt-1 text-[23px] text-ink">
-              Agriculture Intelligence
-              <span className="font-normal text-ink-muted"> · Command Centre</span>
-            </div>
-            <div className="mt-0.5 text-[11.5px] text-ink-faint">
-              Department of Agriculture · Public discourse monitoring
+
+      <header className="masthead-field bg-surface">
+        <div className="mx-auto flex max-w-[1180px] items-center gap-5 px-6 py-6">
+          <Link href="/" className="flex items-center gap-5">
+            <SealMark size={46} />
+            <div>
+              <div className="kicker text-seal">
+                తెలంగాణ ప్రభుత్వం · Government of Telangana
+              </div>
+              <div className="headline-serif mt-1 text-[27px] leading-none text-ink">
+                Agriculture Intelligence
+              </div>
+              <div className="mt-1.5 text-[11.5px] tracking-[0.02em] text-ink-muted">
+                Department of Agriculture · Public discourse monitoring
+              </div>
             </div>
           </Link>
-          <div className="flex items-end gap-6">
-            <div className="text-right text-[12px] text-ink-faint">
-              <div className="kicker text-ink-faint">Updated</div>
-              <div className="mt-0.5 text-ink-muted">{formatDateTime(lastGeneratedAt)} IST</div>
+
+          <div className="ml-auto hidden text-right sm:block">
+            <div className="kicker text-ink-faint">Last updated</div>
+            <div className="metric-number mt-0.5 text-[15px] text-ink-secondary">
+              {formatDateTime(lastGeneratedAt)}
             </div>
+            <div className="text-[11px] text-ink-faint">IST</div>
           </div>
         </div>
+        {/* Institutional rule: a weight of green over a hairline, the way an
+            official letterhead closes its header block. */}
+        <div className="h-[3px] bg-[var(--seal)] opacity-90" />
+        <div className="h-px bg-[var(--rule-strong)]" />
       </header>
     </>
   );
