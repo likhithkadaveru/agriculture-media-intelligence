@@ -104,13 +104,19 @@ export async function runCollection(
   db: Db,
   connectorKey: string,
   query: string | null = null,
+  /**
+   * Passed through to the connector. `since` is honoured only by sources
+   * that support a historical window (Apify actors); feed-based sources
+   * return whatever the publisher currently serves.
+   */
+  options: { limit?: number; since?: Date } = {},
 ): Promise<CollectionResult> {
   const connector = getConnector(connectorKey);
   const source = await ensureSource(db, connector);
 
   const runId = randomUUID();
   const startedAt = new Date();
-  const items = await connector.collect({ query });
+  const items = await connector.collect({ query, ...options });
   const dataOrigin = items[0]?.dataOrigin ?? "live";
 
   await db.insert(collectionRuns).values({

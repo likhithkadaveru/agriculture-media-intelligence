@@ -109,7 +109,9 @@ export const jobs = {
       ...(process.env.YOUTUBE_API_KEY ? ["youtube-api"] : []),
       // Apify sources are paid per result, so they run only when a token is
       // present and only for the sources the scheduler actually seeds.
-      ...(process.env.APIFY_API_TOKEN ? ["apify-x-search"] : []),
+      ...(process.env.APIFY_API_TOKEN
+        ? ["apify-x-search", "apify-instagram-hashtag"]
+        : []),
     ];
 
     for (const connectorKey of connectors) {

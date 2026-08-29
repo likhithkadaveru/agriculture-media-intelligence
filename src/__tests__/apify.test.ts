@@ -122,3 +122,18 @@ describe("official account recognition", () => {
     expect(m.author?.isOfficialAccount).toBe(false);
   });
 });
+
+describe("historical window", () => {
+  it("passes a date window to the actor when one is requested", () => {
+    const since = new Date("2026-08-15T00:00:00Z");
+    const input = X_SEARCH.buildInput({ query: "DAP Telangana", limit: 50, since });
+    expect(input.start).toBe("2026-08-15");
+    expect(input.maxItems).toBe(50);
+  });
+
+  it("omits the window when none is requested, rather than inventing one", () => {
+    const input = X_SEARCH.buildInput({ query: "DAP Telangana" });
+    expect(input.start).toBeUndefined();
+    expect(input.end).toBeUndefined();
+  });
+});

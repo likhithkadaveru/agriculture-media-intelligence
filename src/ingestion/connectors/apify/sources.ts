@@ -52,7 +52,14 @@ export const X_SEARCH: ApifySourceSpec = {
 
   buildInput(query) {
     if (!query.query) throw new Error("apify-x-search requires a search term");
+    // The actor accepts `start`/`end` (confirmed from its input schema), so a
+    // historical window is a real capability here rather than a filter we
+    // apply after paying for everything.
+    const window = query.since
+      ? { start: query.since.toISOString().slice(0, 10) }
+      : {};
     return {
+      ...window,
       searchTerms: [query.query],
       maxItems: query.limit ?? X_MAX_ITEMS,
       // "Latest" rather than "Top": an emerging complaint has no engagement
@@ -109,10 +116,24 @@ export const X_SEARCH: ApifySourceSpec = {
  * Actor: apify/instagram-hashtag-scraper. Public hashtag content only —
  * never private accounts, never followers, never direct messages.
  *
- * Registered but NOT scheduled by default: Instagram agriculture content
- * skews heavily promotional, and it should earn its quota by demonstrating
- * yield before it competes with X for budget.
+ * Costs $0.0026 per result, roughly 6.5x X, so volumes are kept
+ * deliberately smaller and the hashtag list stays short and specific.
  */
+/**
+ * Instagram results cost $0.0026 each — 6.5x an X result — so this defaults
+ * low and the hashtag list is short. Raise via APIFY_IG_MAX_ITEMS.
+ */
+const IG_MAX_ITEMS = Number(process.env.APIFY_IG_MAX_ITEMS ?? 12);
+
+/** Hashtags polled for Instagram. Specific beats broad: #agriculture alone
+ *  returns global stock content that the relevance gate then pays to reject. */
+export const INSTAGRAM_HASHTAGS = [
+  "telanganafarmers",
+  "rythubharosa",
+  "telanganaagriculture",
+  "telanganarythu",
+];
+
 export const INSTAGRAM_HASHTAG: ApifySourceSpec = {
   key: "apify-instagram-hashtag",
   platform: "web",
@@ -122,7 +143,7 @@ export const INSTAGRAM_HASHTAG: ApifySourceSpec = {
     if (!query.query) throw new Error("apify-instagram-hashtag requires a hashtag");
     return {
       hashtags: [query.query.replace(/^#/, "")],
-      resultsLimit: query.limit ?? 30,
+      resultsLimit: query.limit ?? IG_MAX_ITEMS,
     };
   },
 
@@ -152,4 +173,4 @@ export const INSTAGRAM_HASHTAG: ApifySourceSpec = {
 export const APIFY_SOURCES: ApifySourceSpec[] = [X_SEARCH, INSTAGRAM_HASHTAG];
 
 /** Sources the scheduler seeds queries for. */
-export const SCHEDULED_APIFY_SOURCES = [X_SEARCH];
+export const SCHEDULED_APIFY_SOURCES = [X_SEARCH, INSTAGRAM_HASHTAG];

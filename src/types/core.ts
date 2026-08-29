@@ -106,6 +106,13 @@ export interface CollectionQuery {
   /** Free-form query or feed identifier understood by the connector. */
   query: string | null;
   limit?: number;
+  /**
+   * Collect items published on or after this instant, where the source
+   * supports a historical window. RSS feeds cannot honour this — they return
+   * whatever is currently in the feed — so callers must treat it as a
+   * request, not a guarantee, and filter afterwards.
+   */
+  since?: Date;
 }
 
 /**

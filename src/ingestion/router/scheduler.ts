@@ -18,7 +18,11 @@ import { collectionQueries, collectionRuns, mentions, rawItems } from "@/db/sche
 import { generateCollectionQueries } from "@/ontology/queries";
 import { YOUTUBE_CHANNELS } from "@/ingestion/connectors/youtube-rss/channels";
 import { NEWS_FEEDS } from "@/ingestion/connectors/news-rss/feeds";
-import { SCHEDULED_APIFY_SOURCES } from "@/ingestion/connectors/apify/sources";
+import {
+  INSTAGRAM_HASHTAGS,
+  SCHEDULED_APIFY_SOURCES,
+  X_SEARCH,
+} from "@/ingestion/connectors/apify/sources";
 
 /** Idempotently upsert the planned query set from configuration. */
 export async function seedCollectionQueries(db: Db): Promise<{ seeded: number }> {
@@ -103,17 +107,31 @@ export async function seedCollectionQueries(db: Db): Promise<{ seeded: number }>
    * layer simply skips the connector when APIFY_API_TOKEN is unset.
    */
   for (const source of SCHEDULED_APIFY_SOURCES) {
-    for (const q of generateCollectionQueries().filter((g) => g.tier === "a")) {
-      const key = `${source.key}::${q.query}`;
+    // X takes ontology search terms; Instagram takes hashtags. Both are
+    // short, specific lists rather than the full generated query set,
+    // because both bill per result.
+    const terms =
+      source.key === X_SEARCH.key
+        ? generateCollectionQueries()
+            .filter((g) => g.tier === "a")
+            .map((g) => ({ query: g.query, language: g.language, priority: g.priority }))
+        : INSTAGRAM_HASHTAGS.map((h) => ({
+            query: h,
+            language: null as "te" | "en" | null,
+            priority: 70,
+          }));
+
+    for (const t of terms) {
+      const key = `${source.key}::${t.query}`;
       if (have.has(key)) continue;
       await db.insert(collectionQueries).values({
         id: randomUUID(),
         connector: source.key,
-        query: q.query,
+        query: t.query,
         label: null,
-        language: q.language,
+        language: t.language,
         tier: "a",
-        priority: q.priority,
+        priority: t.priority,
         frequencyHours: 24,
         expectedNoise: "high",
         enabled: true,
