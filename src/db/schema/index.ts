@@ -234,6 +234,12 @@ export const mentions = pgTable(
     thumbnailUrl: text("thumbnail_url"),
     /** unavailable | available | not_applicable — never fabricated. */
     transcriptStatus: text("transcript_status"),
+    /**
+     * Spoken-word transcript, fetched only for relevance-accepted video.
+     * Broadcast items name their district out loud far more often than in
+     * the title, so this is frequently the only place the location exists.
+     */
+    transcript: text("transcript"),
 
     classificationConfidence: doublePrecision("classification_confidence"),
     isOfficialVoice: boolean("is_official_voice").notNull().default(false),

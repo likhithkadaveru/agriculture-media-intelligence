@@ -27,6 +27,7 @@ import { YouTubeApiConnector } from "@/ingestion/connectors/youtube-api";
 import { adjudicateNarratives } from "@/intelligence/narratives/adjudicate";
 import { runRelevanceStage } from "@/intelligence/relevance/stage";
 import { runEnrichmentStage } from "@/intelligence/enrichment/stage";
+import { runTranscriptStage } from "@/intelligence/enrichment/transcript";
 import { getEnricher } from "@/intelligence/enrichment/llm";
 import { runDedupStage } from "@/intelligence/dedup";
 import { runNarrativeStage } from "@/intelligence/narratives/stage";
@@ -147,6 +148,19 @@ export const jobs = {
     ctx.log(
       `relevance: ${relevance.assessed} assessed, ${relevance.accepted} accepted, ${relevance.rejected} rejected`,
     );
+    /*
+     * Transcripts run after relevance and before enrichment: after, because
+     * the actor bills per video and only accepted items are worth paying
+     * for; before, because the district is usually spoken rather than
+     * written, and enrichment is the stage that reads it.
+     */
+    const transcripts = await runTranscriptStage(ctx.db, { log: ctx.log });
+    if (transcripts.attempted > 0) {
+      ctx.log(
+        `transcripts: ${transcripts.attempted} attempted, ${transcripts.retrieved} retrieved, ` +
+          `${transcripts.unavailable} without captions, ${transcripts.failed} failed`,
+      );
+    }
     const enricher = ctx.enricher ?? (await getEnricher());
     ctx.log(`enrichment: using ${enricher.provider}/${enricher.model}`);
     const enrichment = await runEnrichmentStage(ctx.db, enricher);

@@ -63,6 +63,8 @@ export interface EnrichmentInput {
   authorBio: string | null;
   isOfficialAccount: boolean;
   dataOrigin: string;
+  /** Spoken-word transcript for video items; null when none was retrievable. */
+  transcript?: string | null;
   /** Development-only, demo_seed corpus translations. */
   seedTranslation?: string | null;
 }

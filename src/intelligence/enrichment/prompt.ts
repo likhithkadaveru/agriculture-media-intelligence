@@ -49,6 +49,16 @@ export function buildEnrichmentPrompt(input: EnrichmentInput): string {
     input.title ? `TITLE: ${input.title}` : "",
     "TEXT:",
     input.originalText.slice(0, 6000),
+    input.transcript
+      ? [
+          "",
+          "SPOKEN TRANSCRIPT (auto-generated captions, may be imperfect):",
+          "Broadcast items usually name the district out loud rather than in",
+          "the title. Prefer a district named here over one merely inferred,",
+          "but do not invent one if the transcript never says it.",
+          input.transcript.slice(0, 8000),
+        ].join("\n")
+      : "",
   ]
     .filter(Boolean)
     .join("\n");

@@ -69,6 +69,7 @@ export async function runEnrichmentStage(
         authorBio: author?.bio ?? null,
         isOfficialAccount: author?.isOfficial ?? false,
         dataOrigin: mention.dataOrigin,
+        transcript: mention.transcript,
         seedTranslation: seedTranslations.get(mention.id) ?? null,
       });
       const durationMs = Date.now() - started;
