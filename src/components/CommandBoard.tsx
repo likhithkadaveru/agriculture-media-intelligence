@@ -102,11 +102,11 @@ export function CommandBoard({ data }: { data: BoardData }) {
   return (
     <>
       {/* ---- The one control on the page ---- */}
-      <div className="mt-7 flex flex-wrap items-center gap-4 border-b border-border pb-5">
+      <div className="mt-6 flex flex-wrap items-center gap-3 border-b border-border pb-4 sm:mt-7 sm:gap-4 sm:pb-5">
         <div
           role="tablist"
           aria-label="Filter what is shown"
-          className="inline-flex rounded-md border border-border-strong bg-surface p-0.5"
+          className="flex w-full rounded-md border border-border-strong bg-surface p-0.5 sm:inline-flex sm:w-auto"
         >
           {LENSES.map((l) => {
             const active = lens === l.key;
@@ -123,7 +123,7 @@ export function CommandBoard({ data }: { data: BoardData }) {
                 aria-selected={active}
                 title={l.hint}
                 onClick={() => setLens(l.key)}
-                className={`rounded px-4 py-1.5 text-[13.5px] font-medium transition-colors ${
+                className={`min-h-[44px] flex-1 rounded px-4 py-2.5 text-[13.5px] font-medium transition-colors sm:min-h-0 sm:flex-none sm:py-1.5 ${
                   active
                     ? l.key === "concerns"
                       ? "bg-[var(--critical-soft)] text-critical"
@@ -151,7 +151,7 @@ export function CommandBoard({ data }: { data: BoardData }) {
       {items.length === 0 ? (
         <p className="mt-10 text-[14px] text-ink-muted">Nothing in this view right now.</p>
       ) : (
-        <section className="mt-8">
+        <section className="mt-6 sm:mt-8">
           {/* The first item carries the weight. A briefing that gives every
               item equal size forces the reader to do the ranking. */}
           <LeadItem item={items[0]} components={data.components[items[0].narrativeId]} />
@@ -171,7 +171,7 @@ export function CommandBoard({ data }: { data: BoardData }) {
       )}
 
       {/* ---- Where ---- */}
-      <section className="mt-12">
+      <section className="mt-10 sm:mt-12">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h2 className="headline-serif text-[20px] text-ink">Across the state</h2>
           <p className="text-[12.5px] text-ink-muted">
@@ -194,7 +194,7 @@ export function CommandBoard({ data }: { data: BoardData }) {
       </section>
 
       {/* ---- Who, and from where ---- */}
-      <section className="mt-11 grid gap-8 sm:grid-cols-2">
+      <section className="mt-9 grid gap-7 sm:mt-11 sm:grid-cols-2 sm:gap-8">
         <div>
           <h2 className="kicker text-ink-faint">Who is talking</h2>
           <div className="mt-2.5">
@@ -210,13 +210,13 @@ export function CommandBoard({ data }: { data: BoardData }) {
       </section>
 
       {coverageFeed.length > 0 && (
-        <div className="mt-12">
+        <div className="mt-10 sm:mt-12">
           <CoverageFeed items={coverageFeed} />
         </div>
       )}
 
       {media.length > 0 && (
-        <div className="mt-12 border-t border-border pt-8">
+        <div className="mt-10 border-t border-border pt-7 sm:mt-12 sm:pt-8">
           <MediaCarousel items={media} />
         </div>
       )}
@@ -253,7 +253,7 @@ function LeadItem({
   return (
     <Link
       href={detailHref(item)}
-      className="group block rounded-lg border border-border bg-surface p-8 transition-colors hover:border-[var(--rule-strong)]"
+      className="group block rounded-lg border border-border bg-surface p-5 transition-colors hover:border-[var(--rule-strong)] sm:p-8"
     >
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <span className={`kicker ${tone.className}`}>{tone.label}</span>
@@ -265,22 +265,22 @@ function LeadItem({
         )}
       </div>
 
-      <h3 className="headline-serif mt-3 max-w-[24ch] text-[clamp(26px,3.2vw,38px)] leading-[1.1] text-ink group-hover:underline decoration-[var(--rule-strong)] underline-offset-[6px]">
+      <h3 className="headline-serif mt-3 max-w-[24ch] text-[clamp(22px,5.6vw,38px)] leading-[1.12] text-ink group-hover:underline decoration-[var(--rule-strong)] underline-offset-[6px]">
         {item.headline}
       </h3>
 
-      <p className="mt-4 max-w-[70ch] text-[15.5px] leading-relaxed text-ink-secondary">
+      <p className="mt-3 max-w-[70ch] text-[14.5px] leading-relaxed text-ink-secondary sm:mt-4 sm:text-[15.5px]">
         {item.line}
       </p>
 
       {item.seasonalReason && (
-        <p className="mt-4 max-w-[70ch] border-l-2 border-[var(--attention)] bg-[var(--attention-soft)] py-2 pl-4 text-[13.5px] leading-relaxed text-ink-secondary">
+        <p className="mt-3 max-w-[70ch] border-l-2 border-[var(--attention)] bg-[var(--attention-soft)] py-2 pl-3 text-[13px] leading-relaxed text-ink-secondary sm:mt-4 sm:pl-4 sm:text-[13.5px]">
           <span className="kicker mr-2 text-emerging">Season</span>
           {item.seasonalReason}
         </p>
       )}
 
-      <dl className="mt-6 flex flex-wrap gap-x-10 gap-y-4 border-t border-border pt-5">
+      <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-border pt-4 sm:mt-6 sm:flex sm:flex-wrap sm:gap-x-10 sm:pt-5">
         <LeadStat label="Independent voices" value={String(item.voices)} />
         {components && (
           <LeadStat label="Source types" value={String(components.sourceTypeCount)} />
@@ -295,7 +295,9 @@ function LeadItem({
         {components && components.duplicatesExcluded > 0 && (
           <LeadStat label="Duplicates excluded" value={String(components.duplicatesExcluded)} />
         )}
-        <span className="ml-auto self-end text-[13px] font-medium text-seal">
+        {/* `ml-auto` has nothing to push against in a grid, so the call to
+            action takes its own full-width row on mobile. */}
+        <span className="col-span-2 text-[13px] font-medium text-seal sm:col-span-1 sm:ml-auto sm:self-end">
           See the evidence →
         </span>
       </dl>
@@ -314,7 +316,10 @@ function LeadStat({
 }) {
   return (
     <div>
-      <dt className="kicker text-ink-faint">{label}</dt>
+      {/* These labels are long enough that some wrap to two lines and some do
+          not, which in a grid leaves the figures sitting at different
+          heights. Reserving two lines on mobile puts them back on one line. */}
+      <dt className="kicker min-h-[2.9em] text-ink-faint sm:min-h-0">{label}</dt>
       <dd className="metric-number mt-1 text-[26px] leading-none text-ink">
         {value}
         {detail && (
@@ -345,19 +350,21 @@ function ItemRow({
     <li>
       <Link
         href={detailHref(item)}
-        className="group flex gap-4 rounded-md border border-border bg-surface p-5 transition-colors hover:border-border-strong"
+        className="group flex gap-2.5 rounded-md border border-border bg-surface p-4 transition-colors hover:border-border-strong sm:gap-4 sm:p-5"
       >
         {/* Severity stripe — state readable without reading the label. */}
         <span aria-hidden className={`w-[3px] shrink-0 rounded-full ${tone.bar}`} />
-        <span className="metric-number mt-0.5 w-5 shrink-0 text-[16px] text-ink-faint">
+        {/* The rank keeps the scannable left edge, but a full-width gutter
+            costs a phone column more than the ordering is worth. */}
+        <span className="metric-number mt-0.5 w-3.5 shrink-0 text-[14px] text-ink-faint sm:w-5 sm:text-[16px]">
           {index + 1}
         </span>
         <div className="min-w-0 flex-1">
           <span className={`kicker ${tone.className}`}>{tone.label}</span>
-          <h3 className="headline-serif mt-1 text-[19px] text-ink group-hover:underline decoration-ink-faint underline-offset-4">
+          <h3 className="headline-serif mt-1 text-[17px] text-ink group-hover:underline decoration-ink-faint underline-offset-4 sm:text-[19px]">
             {item.headline}
           </h3>
-          <p className="mt-1.5 max-w-[76ch] text-[13.5px] leading-relaxed text-ink-secondary">
+          <p className="clamp-mobile-2 mt-1.5 max-w-[76ch] text-[13px] leading-relaxed text-ink-secondary sm:text-[13.5px]">
             {item.line}
           </p>
           {item.seasonalReason && (
@@ -365,7 +372,7 @@ function ItemRow({
               {item.seasonalReason}
             </p>
           )}
-          <div className="mt-2.5 flex flex-wrap items-center gap-x-5 gap-y-1 text-[12px] text-ink-faint">
+          <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-ink-faint sm:gap-x-5">
             <span>
               {item.voices} independent {item.voices === 1 ? "voice" : "voices"}
             </span>

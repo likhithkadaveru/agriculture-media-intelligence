@@ -45,7 +45,7 @@ export function EvidenceCard({ item }: { item: EvidenceItem }) {
     mention.contentText !== null && mention.originalText.length > mention.contentText.length + 40;
 
   return (
-    <article className="rounded-lg border border-border bg-surface p-5">
+    <article className="rounded-lg border border-border bg-surface p-4 sm:p-5">
       {/* Source header */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <PlatformBadge platform={mention.platform} />
@@ -172,13 +172,13 @@ export function EvidenceCard({ item }: { item: EvidenceItem }) {
       )}
 
       {/* Source link */}
-      <div className="mt-4 flex flex-wrap items-center gap-4">
+      <div className="mt-2 flex flex-wrap items-center gap-4 sm:mt-4">
         {mention.url && (
           <a
             href={mention.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[12.5px] font-medium text-ink-muted hover:text-ink"
+            className="inline-flex min-h-[44px] items-center text-[12.5px] font-medium text-ink-muted hover:text-ink sm:min-h-0"
           >
             Open original source ↗
           </a>

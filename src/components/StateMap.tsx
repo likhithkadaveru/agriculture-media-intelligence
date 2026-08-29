@@ -67,7 +67,7 @@ export function StateMap({
   );
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px]">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-8">
       <figure className="m-0">
         <svg
           viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`}
@@ -107,17 +107,16 @@ export function StateMap({
                   x={shape.cx}
                   y={shape.cy}
                   textAnchor="middle"
-                  fontSize={19}
-                  fontWeight={600}
+                  className="map-label"
                   fill={labelInk(c)}
                 >
                   {nameById.get(shape.id)}
                 </text>
                 <text
                   x={shape.cx}
-                  y={shape.cy + 21}
+                  y={shape.cy + 34}
                   textAnchor="middle"
-                  fontSize={17}
+                  className="map-label-count"
                   fill={labelInk(c)}
                   opacity={0.85}
                 >
@@ -176,20 +175,23 @@ export function StateMap({
         {withEvidence.length > 0 && (
           <div className="border-t border-border pt-4">
             <h3 className="kicker text-ink-faint">Districts with evidence</h3>
-            <ul className="mt-2 space-y-1.5">
+            <ul className="mt-2 sm:space-y-1.5">
               {withEvidence
                 .slice()
                 .sort((a, b) => a.balance - b.balance)
                 .map((c) => (
-                  <li key={c.id} className="flex items-baseline gap-2 text-[12.5px]">
+                  <li
+                    key={c.id}
+                    className="flex min-h-[44px] items-center gap-2 text-[13px] sm:min-h-0 sm:items-baseline sm:text-[12.5px]"
+                  >
                     <span
-                      className="mt-[3px] inline-block h-2.5 w-2.5 shrink-0 border"
+                      className="inline-block h-2.5 w-2.5 shrink-0 border sm:mt-[3px]"
                       style={{ background: shadeFor(c), borderColor: "var(--rule-strong)" }}
                     />
                     {c.narrativeId ? (
                       <Link
                         href={`/narratives/${c.narrativeId}`}
-                        className="text-ink-secondary hover:text-seal hover:underline"
+                        className="flex items-center self-stretch text-ink-secondary hover:text-seal hover:underline"
                       >
                         {c.name}
                       </Link>

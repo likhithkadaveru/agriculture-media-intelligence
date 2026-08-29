@@ -43,28 +43,44 @@ export function SiteHeader({
         otherwise, so the status is stated above everything else and is not
         dismissible.
       */}
-      <div className="bg-[var(--ink)] px-6 py-1.5 text-center">
+      <div className="bg-[var(--ink)] px-4 py-1.5 text-center sm:px-6">
         <span className="kicker text-[10.5px] text-[var(--paper)] opacity-90">
-          Independent prototype · demonstration only · not affiliated with or endorsed by the
-          Government of Telangana
+          {/* Three centred lines of tracked caps is most of a phone's first
+              screen. The short form makes the same claim in one line; the
+              full wording stays wherever there is room for it. */}
+          <span className="sm:hidden">
+            Independent prototype · not a Government of Telangana system
+          </span>
+          <span className="hidden sm:inline">
+            Independent prototype · demonstration only · not affiliated with or endorsed by the
+            Government of Telangana
+          </span>
         </span>
       </div>
       {env && (
-        <div className={`border-b px-6 py-1.5 text-center ${env.className}`}>
+        <div className={`border-b px-4 py-1.5 text-left sm:px-6 sm:text-center ${env.className}`}>
           <span className="kicker">{env.label}</span>
-          <span className="ml-2 text-[11px] tracking-normal opacity-70">{env.detail}</span>
+          {/* Centred text that wraps loses its centre. Left-aligned below the
+              label on mobile, inline on one line above it. */}
+          <span className="ml-0 block text-[11px] leading-snug tracking-normal opacity-70 sm:ml-2 sm:inline">
+            {env.detail}
+          </span>
         </div>
       )}
 
       <header className="masthead-field bg-surface">
-        <div className="mx-auto flex max-w-[1180px] items-center gap-5 px-6 py-6">
-          <Link href="/" className="flex items-center gap-5">
-            <SealMark size={46} />
+        <div className="mx-auto flex max-w-[1180px] items-center gap-5 px-4 py-4 sm:px-6 sm:py-6">
+          <Link href="/" className="flex items-center gap-3 sm:gap-5">
+            {/* The mark holds the letterhead together, but at full size it
+                takes a fifth of a phone's width from the name beside it. */}
+            <span className="shrink-0 [&>svg]:h-[38px] [&>svg]:w-[38px] sm:[&>svg]:h-[46px] sm:[&>svg]:w-[46px]">
+              <SealMark size={46} />
+            </span>
             <div>
               <div className="kicker text-seal">
                 Telangana Agriculture · Public discourse monitoring
               </div>
-              <div className="headline-serif mt-1 text-[27px] leading-none text-ink">
+              <div className="headline-serif mt-1 text-[21px] leading-none text-ink sm:text-[27px]">
                 Agriculture Intelligence
               </div>
               <div className="mt-1.5 text-[11.5px] tracking-[0.02em] text-ink-muted">
