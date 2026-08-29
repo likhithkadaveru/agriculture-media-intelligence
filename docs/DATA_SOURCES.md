@@ -225,3 +225,27 @@ APIFY_API_TOKEN=apify_api_xxxxxxxx
 
 Nothing else changes — the connector registers itself and the scheduler
 already holds its queries.
+
+### Apify actor quotas are separate from account credit
+
+Live operation surfaced a trap worth recording. `apidojo/tweet-scraper`
+enforces its **own free-tier monthly run cap**, independent of the Apify
+account's usage credit. On hitting it the run:
+
+- exits with status `SUCCEEDED`
+- writes **zero items** to the dataset
+- puts `Monthly run limit exceeded per user` only in the run log
+
+So the account showed $0.25 of $5 spent while every X query silently returned
+nothing. A hard blocker was indistinguishable from a search that matched
+nothing, and collection cycles completed looking healthy.
+
+The connector now treats an empty dataset as an **error**, naming the likely
+cause and pointing at the run log. A source that has stopped working must look
+broken rather than quiet — silent degradation is the worst failure mode for a
+monitoring system, because confidence in coverage stays high while coverage
+goes to zero.
+
+Raising the cap means a paid Apify plan, or switching to an actor with
+different limits (`kaitoeasyapi/twitter-x-data-tweet-scraper-pay-per-result-cheapest`
+was verified as an alternative and needs only a one-line `actorId` change).

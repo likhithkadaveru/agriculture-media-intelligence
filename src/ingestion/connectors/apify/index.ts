@@ -76,6 +76,29 @@ export class ApifyConnectorAdapter implements SourceConnector {
   async collect(query: CollectionQuery): Promise<RawSourceItem[]> {
     if (!this.token) throw new Error("APIFY_API_TOKEN is not configured");
     const items = await this.runActor(this.spec.actorId, this.spec.buildInput(query));
+
+    /*
+     * An empty dataset is ambiguous and must not be treated as "no results".
+     *
+     * Observed in live operation: apidojo/tweet-scraper enforces its own
+     * free-tier monthly RUN cap, separate from Apify account credit. On
+     * hitting it the run exits SUCCEEDED with zero items and the quota
+     * message only in its log — so a hard blocker looked identical to a
+     * search that genuinely matched nothing, and silently produced empty
+     * collection cycles.
+     *
+     * Zero items is therefore surfaced as an error the run log can explain,
+     * rather than swallowed. A source that has stopped working must look
+     * broken, not quiet.
+     */
+    if (items.length === 0) {
+      throw new Error(
+        `Apify actor ${this.spec.actorId} returned no items for "${query.query}". ` +
+          "This is often an actor-level quota or plan limit rather than an empty " +
+          "search — check the run log at https://console.apify.com/actors/runs",
+      );
+    }
+
     const collectedAt = new Date();
     return items.flatMap((item) => {
       const parsed = this.spec.parseItem(item);

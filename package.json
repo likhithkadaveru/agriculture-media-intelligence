@@ -19,7 +19,8 @@
     "audit:relevance": "tsx --tsconfig tsconfig.scripts.json scripts/audit-report.ts relevance",
     "audit:voice": "tsx --tsconfig tsconfig.scripts.json scripts/audit-report.ts voice",
     "audit:dedup": "tsx --tsconfig tsconfig.scripts.json scripts/audit-report.ts dedup",
-    "backfill": "tsx --tsconfig tsconfig.scripts.json scripts/backfill.ts"
+    "backfill": "tsx --tsconfig tsconfig.scripts.json scripts/backfill.ts",
+    "scheduler": "tsx --tsconfig tsconfig.scripts.json scripts/scheduler.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.7",

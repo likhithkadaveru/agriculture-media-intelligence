@@ -137,3 +137,23 @@ describe("historical window", () => {
     expect(input.end).toBeUndefined();
   });
 });
+
+describe("silent-failure protection", () => {
+  it("treats an empty dataset as an error, not as 'no results'", async () => {
+    // apidojo/tweet-scraper hits its own free-tier RUN cap and exits
+    // SUCCEEDED with zero items, putting the quota message only in the log.
+    // Swallowing that produced empty collection cycles that looked normal.
+    const adapter = new ApifyConnectorAdapter(X_SEARCH, "token");
+    adapter.runActor = vi.fn().mockResolvedValue([]);
+    await expect(adapter.collect({ query: "Telangana farmers" })).rejects.toThrow(
+      /quota or plan limit/,
+    );
+  });
+
+  it("still collects normally when the actor returns items", async () => {
+    const adapter = new ApifyConnectorAdapter(X_SEARCH, "token");
+    adapter.runActor = vi.fn().mockResolvedValue([TWEET]);
+    const raw = await adapter.collect({ query: "x" });
+    expect(raw).toHaveLength(1);
+  });
+});
