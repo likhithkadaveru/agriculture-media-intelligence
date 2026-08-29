@@ -8,6 +8,7 @@
  * Unknown values remain null. Nothing is invented.
  */
 import type { NormalizedMention, Platform, RawSourceItem } from "@/types/core";
+import { isOfficialXHandle } from "@/ingestion/connectors/apify/official-accounts";
 
 type PayloadRecord = Record<string, unknown>;
 
@@ -113,7 +114,10 @@ function normalizeX(item: RawSourceItem, publishedAt: Date | null): NormalizedMe
           name: str(author.name)!,
           handle: str(author.handle),
           bio: str(author.bio),
-          isOfficialAccount: false,
+          // Institutional government accounts must be recognised, or a
+          // department statement would count as one more public voice and
+          // understate any official-versus-public divergence.
+          isOfficialAccount: isOfficialXHandle(str(author.handle)),
         }
       : null,
     title: null,

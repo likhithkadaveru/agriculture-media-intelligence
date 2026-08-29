@@ -115,7 +115,7 @@ export const jobs = {
     for (const connectorKey of connectors) {
       // Cost guards: the API and Apify both bill per call, RSS does not.
       const limit =
-        connectorKey === "youtube-api" ? 8 : connectorKey.startsWith("apify-") ? 6 : 20;
+        connectorKey === "youtube-api" ? 8 : connectorKey.startsWith("apify-") ? 5 : 20;
       const due = await getDueQueries(ctx.db, connectorKey, limit);
       let collected = 0;
       let newMentions = 0;

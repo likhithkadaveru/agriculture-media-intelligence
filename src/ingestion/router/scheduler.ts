@@ -90,10 +90,13 @@ export async function seedCollectionQueries(db: Db): Promise<{ seeded: number }>
   }
 
   /*
-   * Apify search terms. Apify bills per result, so unlike the free feeds
-   * these are deliberately few and slow: only the ten Tier A core terms,
-   * every 12 hours, capped at 6 queries per cycle by the job layer. That is
-   * roughly 20 actor runs a day rather than hundreds.
+   * Apify search terms. Apify bills per result ($0.0004/tweet), so unlike
+   * the free feeds these are deliberately few and slow: only the ten Tier A
+   * core terms, once a day, capped at 5 queries per cycle by the job layer.
+   *
+   * At 15 results per term that is ~4,500 tweets a month (~$1.80), inside
+   * Apify's $5 free monthly credit. Both numbers are meant to be raised
+   * consciously, not by accident.
    *
    * Rows are seeded whether or not a token is present, so the plan is
    * visible in `npm run quality` before anyone pays for anything; the job
@@ -111,7 +114,7 @@ export async function seedCollectionQueries(db: Db): Promise<{ seeded: number }>
         language: q.language,
         tier: "a",
         priority: q.priority,
-        frequencyHours: 12,
+        frequencyHours: 24,
         expectedNoise: "high",
         enabled: true,
       });

@@ -35,6 +35,16 @@ function obj(v: unknown): Record<string, unknown> {
  * This is the source that finally brings individual farmer voices in —
  * YouTube and news give us broadcasters and publishers; X gives us people.
  */
+/**
+ * Results requested per search term.
+ *
+ * The actor bills $0.0004 per tweet. At the default 15 results across the ten
+ * Tier A terms once a day that is ~4,500 tweets a month, about $1.80 — inside
+ * Apify's $5 free monthly credit with room to spare. Raise deliberately via
+ * APIFY_X_MAX_ITEMS and recompute: terms x items x runs/day x 30 x $0.0004.
+ */
+const X_MAX_ITEMS = Number(process.env.APIFY_X_MAX_ITEMS ?? 15);
+
 export const X_SEARCH: ApifySourceSpec = {
   key: "apify-x-search",
   platform: "x",
@@ -44,7 +54,7 @@ export const X_SEARCH: ApifySourceSpec = {
     if (!query.query) throw new Error("apify-x-search requires a search term");
     return {
       searchTerms: [query.query],
-      maxItems: query.limit ?? 40,
+      maxItems: query.limit ?? X_MAX_ITEMS,
       // "Latest" rather than "Top": an emerging complaint has no engagement
       // yet, and engagement-ranked results would systematically hide exactly
       // the early signal this system exists to find.

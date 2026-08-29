@@ -86,3 +86,39 @@ describe("apify X source", () => {
     await expect(adapter.collect({ query: "x" })).rejects.toThrow(/APIFY_API_TOKEN/);
   });
 });
+
+describe("official account recognition", () => {
+  it("flags an institutional government handle as official voice", async () => {
+    const parsed = X_SEARCH.parseItem({
+      id: "5",
+      text: "ఎరువుల నిల్వలు సరిపడా ఉన్నాయి",
+      author: { name: "IPRDepartment", userName: "IPRTelangana" },
+    })!;
+    const { normalizeRawItem } = await import("@/ingestion/normalization");
+    const m = normalizeRawItem({
+      platform: "x",
+      externalId: parsed.externalId,
+      payload: parsed.payload,
+      collectedAt: new Date(),
+      dataOrigin: "live",
+    });
+    expect(m.author?.isOfficialAccount).toBe(true);
+  });
+
+  it("does not flag an ordinary account as official", async () => {
+    const parsed = X_SEARCH.parseItem({
+      id: "6",
+      text: "మా ఊర్లో యూరియా లేదు",
+      author: { name: "Rythu", userName: "some_farmer" },
+    })!;
+    const { normalizeRawItem } = await import("@/ingestion/normalization");
+    const m = normalizeRawItem({
+      platform: "x",
+      externalId: parsed.externalId,
+      payload: parsed.payload,
+      collectedAt: new Date(),
+      dataOrigin: "live",
+    });
+    expect(m.author?.isOfficialAccount).toBe(false);
+  });
+});
