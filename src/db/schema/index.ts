@@ -402,6 +402,49 @@ export const collectionQueries = pgTable(
 );
 
 /**
+ * Web push subscriptions — one row per browser that opted in.
+ *
+ * Endpoints expire and devices are wiped, so a subscription is disposable
+ * by design: a 404 or 410 from the push service is the browser telling us
+ * it is gone, and the row is deleted rather than retried.
+ */
+export const pushSubscriptions = pgTable(
+  "push_subscriptions",
+  {
+    id: uuid("id").primaryKey(),
+    endpoint: text("endpoint").notNull(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    /** Free-text note so a recipient list stays auditable. */
+    label: text("label"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    lastNotifiedAt: timestamp("last_notified_at", { withTimezone: true }),
+  },
+  (t) => [uniqueIndex("push_subscriptions_endpoint_idx").on(t.endpoint)],
+);
+
+/**
+ * Alerts already delivered, keyed by finding.
+ *
+ * Findings are regenerated every cycle, so without this the same
+ * unfavourable finding would notify every officer on every run. An alert
+ * that repeats is an alert that gets muted.
+ */
+export const sentAlerts = pgTable(
+  "sent_alerts",
+  {
+    id: uuid("id").primaryKey(),
+    findingId: uuid("finding_id")
+      .notNull()
+      .references(() => intelligenceFindings.id),
+    narrativeId: uuid("narrative_id").notNull(),
+    sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
+    recipients: integer("recipients").notNull().default(0),
+  },
+  (t) => [uniqueIndex("sent_alerts_narrative_idx").on(t.narrativeId)],
+);
+
+/**
  * Verified snapshots — frozen copies of a real (live) intelligence state,
  * suitable for offline/demo use. Copied rows carry
  * data_origin = 'verified_snapshot'; live rows are never mutated.

@@ -32,6 +32,7 @@ import { getEnricher } from "@/intelligence/enrichment/llm";
 import { runDedupStage } from "@/intelligence/dedup";
 import { runNarrativeStage } from "@/intelligence/narratives/stage";
 import { runFindingStage } from "@/intelligence/findings/stage";
+import { runAlertStage } from "@/intelligence/findings/alerts";
 import type { Enricher } from "@/intelligence/enrichment/schema";
 
 export interface JobContext {
@@ -183,8 +184,17 @@ export const jobs = {
     }
     const findings = await runFindingStage(ctx.db);
     ctx.log(`findings: ${findings.generated} generated`);
+    // Alerts go out last: a notification must never describe a finding that
+    // the site cannot yet show when the officer taps through to it.
+    const alerts = await runAlertStage(ctx.db, { log: ctx.log });
+    if (alerts.candidates > 0) {
+      ctx.log(
+        `alerts: ${alerts.alerted} sent to ${alerts.recipients} device(s), ` +
+          `${alerts.skipped} already notified`,
+      );
+    }
     await updateQueryYieldStats(ctx.db);
-    return { relevance, enrichment, dedup, narrative, findings };
+    return { relevance, transcripts, enrichment, dedup, narrative, findings, alerts };
   },
 } satisfies Record<string, (ctx: JobContext) => Promise<JobResult>>;
 

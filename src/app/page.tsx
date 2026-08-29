@@ -3,6 +3,7 @@ import { getCommandView, getCoverageByDistrict, getCoverageFeed } from "@/db/que
 import type { FindingComponents } from "@/intelligence/findings/stage";
 import { SiteHeader } from "@/components/SiteHeader";
 import { CommandBoard, type BoardData } from "@/components/CommandBoard";
+import { AlertOptIn } from "@/components/AlertOptIn";
 import { getSeasonContext } from "@/ontology/calendar";
 import { DISTRICTS } from "@/ontology";
 import { formatFullDate, formatNumber } from "@/lib/format";
@@ -118,7 +119,11 @@ export default async function CommandPage() {
           </div>
         )}
 
-        <p className="mt-12 max-w-[86ch] border-t border-border pt-5 text-[12px] leading-relaxed text-ink-faint sm:mt-16">
+        <div className="mt-12 border-t border-border pt-5 sm:mt-16">
+          <AlertOptIn />
+        </div>
+
+        <p className="mt-6 max-w-[86ch] text-[12px] leading-relaxed text-ink-faint">
           Every figure traces to the public items behind it. Duplicates are shown but never
           counted, districts are assigned only where the text evidences them, and AI
           interpretation is labelled and separated from source content throughout. Open any item

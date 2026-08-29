@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.7",
+    "@types/web-push": "^3.6.4",
     "ai": "^7.0.77",
     "drizzle-orm": "^0.45.2",
     "fast-xml-parser": "^5.11.0",
@@ -33,6 +34,7 @@
     "pg": "^8.23.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "web-push": "^3.6.7",
     "zod": "^4.4.3"
   },
   "devDependencies": {
