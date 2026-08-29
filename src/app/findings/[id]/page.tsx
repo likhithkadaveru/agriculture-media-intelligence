@@ -49,7 +49,7 @@ export default async function FindingPage({
 
   return (
     <div className="min-h-screen">
-      <SiteHeader activeOrigin={env.activeOrigin} lastGeneratedAt={finding.generatedAt} current="/" />
+      <SiteHeader activeOrigin={env.activeOrigin} lastGeneratedAt={finding.generatedAt} />
 
       <main className="mx-auto max-w-[1200px] px-6 pb-24">
         <nav className="py-5">

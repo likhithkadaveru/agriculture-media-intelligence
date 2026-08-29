@@ -38,24 +38,23 @@ npm run audit:relevance               # docs/LIVE_RELEVANCE_AUDIT.md (also :voic
 npm run snapshot:create -- --label "…"  # frozen, verifiable copy of live state
 ```
 
-## Screens
+## Two surfaces, deliberately
 
-- **NOW** (`/`) — ranked intelligence findings with explainable component
-  metrics (independent voices, districts, source types, farmer-originated
-  share, duplicates excluded). No opaque scores.
-- **Narratives** (`/narratives`) — what conversations are shaping Telangana
-  agriculture, ranked by movement then volume, with trend status.
-- **Narrative Detail** (`/narratives/[id]`) — executive synthesis, timeline,
-  extracted claims, who is talking, where, how it is framed, and every piece of
-  evidence.
-- **Evidence / Finding Detail** (`/findings/[id]`) — the trust surface: original
-  Telugu verbatim, labelled English translation, author classification with
-  confidence, district with confidence, processing trail, and duplicates shown
-  but never counted.
+Senior officers do not browse products. There are exactly two screens:
+
+- **The command screen** (`/`) — the whole operational picture in one scroll:
+  where the crop season stands, what needs attention (ranked), what is going
+  well, which districts carry evidence, who is talking, where it came from,
+  and the collected media itself.
+- **The evidence view** (`/findings/[id]`, `/narratives/[id]`) — everything
+  behind any single item: original Telugu verbatim, labelled English
+  translation, author classification with confidence, district with
+  confidence, extracted claims, timeline, the processing trail, and
+  duplicates shown but never counted.
 
 A ribbon states which evidence is on screen — **Live public data**, **Verified
 snapshot**, or **Development data** — computed from the lineage of the active
-findings, not from what happens to sit in the database.
+findings, not from whatever sits in the database.
 
 ## How it works
 

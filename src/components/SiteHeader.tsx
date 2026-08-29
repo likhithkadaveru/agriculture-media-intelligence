@@ -19,12 +19,6 @@ const ENVIRONMENTS = {
   },
 } as const;
 
-const NAV = [
-  { href: "/brief", label: "Brief" },
-  { href: "/", label: "Now" },
-  { href: "/narratives", label: "Narratives" },
-  { href: "/districts", label: "Districts" },
-];
 
 /**
  * Global masthead. The environment ribbon is computed from the lineage of
@@ -34,11 +28,9 @@ const NAV = [
 export function SiteHeader({
   activeOrigin,
   lastGeneratedAt,
-  current,
 }: {
   activeOrigin: "live" | "verified_snapshot" | "demo_seed" | null;
   lastGeneratedAt: Date | null;
-  current?: string;
 }) {
   const env = activeOrigin ? ENVIRONMENTS[activeOrigin] : null;
   return (
@@ -59,21 +51,6 @@ export function SiteHeader({
             </div>
           </Link>
           <div className="flex items-end gap-6">
-            <nav className="flex gap-5">
-              {NAV.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`kicker pb-0.5 transition-colors ${
-                    current === item.href
-                      ? "border-b border-emerging text-ink"
-                      : "text-ink-muted hover:text-ink"
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
             <div className="text-right text-[12px] text-ink-faint">
               <div className="kicker text-ink-faint">Updated</div>
               <div className="mt-0.5 text-ink-muted">{formatDateTime(lastGeneratedAt)} IST</div>

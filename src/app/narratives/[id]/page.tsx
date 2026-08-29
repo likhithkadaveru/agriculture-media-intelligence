@@ -57,17 +57,16 @@ export default async function NarrativePage({
       <SiteHeader
         activeOrigin={env.activeOrigin}
         lastGeneratedAt={narrative.updatedAt}
-        current="/narratives"
       />
 
       <main className="mx-auto max-w-[1200px] px-6 pb-24">
         <nav className="flex gap-4 py-5 text-[13px]">
-          <Link href="/narratives" className="text-ink-muted hover:text-ink">
-            ← Narratives
+          <Link href="/" className="text-ink-muted hover:text-ink">
+            ← Overview
           </Link>
           {findingId && (
             <Link href={`/findings/${findingId}`} className="text-ink-muted hover:text-ink">
-              View as Now finding →
+              View as finding →
             </Link>
           )}
         </nav>

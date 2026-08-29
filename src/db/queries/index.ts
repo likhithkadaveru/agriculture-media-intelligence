@@ -686,3 +686,44 @@ export async function getDistrictOverview(
     locatedCount: scoped.length - unlocated,
   };
 }
+
+export interface CommandView {
+  env: EnvironmentInfo;
+  brief: MorningBrief;
+  findings: FindingWithNarrative[];
+  districts: DistrictOverview;
+  media: MediaItem[];
+  /** Aggregate voice and source composition across everything on screen. */
+  voiceMix: Record<string, number>;
+  sourceMix: Record<string, number>;
+}
+
+/**
+ * Everything the command screen needs, in one pass.
+ *
+ * Senior officers do not browse. The product therefore has one operational
+ * surface and one evidence surface; this assembles the first so the page can
+ * render without stitching six calls together.
+ */
+export async function getCommandView(db: Db): Promise<CommandView> {
+  const env = await getEnvironmentInfo(db);
+  const [brief, findings, districts, media] = await Promise.all([
+    getMorningBrief(db, env.activeOrigin),
+    getActiveFindings(db, env.activeOrigin),
+    getDistrictOverview(db, env.activeOrigin),
+    getMediaItems(db, env.activeOrigin, 20),
+  ]);
+
+  const voiceMix: Record<string, number> = {};
+  const sourceMix: Record<string, number> = {};
+  for (const f of findings) {
+    for (const [voice, n] of Object.entries(f.narrative.voiceMix)) {
+      voiceMix[voice] = (voiceMix[voice] ?? 0) + n;
+    }
+    for (const [platform, n] of Object.entries(f.narrative.sourceMix)) {
+      sourceMix[platform] = (sourceMix[platform] ?? 0) + n;
+    }
+  }
+
+  return { env, brief, findings, districts, media, voiceMix, sourceMix };
+}
