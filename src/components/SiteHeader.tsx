@@ -20,8 +20,10 @@ const ENVIRONMENTS = {
 } as const;
 
 const NAV = [
+  { href: "/brief", label: "Brief" },
   { href: "/", label: "Now" },
   { href: "/narratives", label: "Narratives" },
+  { href: "/districts", label: "Districts" },
 ];
 
 /**

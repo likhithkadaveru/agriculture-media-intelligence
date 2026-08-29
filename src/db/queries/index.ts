@@ -459,3 +459,230 @@ export async function getMediaItems(
     };
   });
 }
+
+export interface BriefItem {
+  kind: "attention" | "escalating" | "positive" | "watch";
+  findingId: string | null;
+  narrativeId: string;
+  headline: string;
+  line: string;
+  districts: string[];
+  voices: number;
+  seasonalReason: string | null;
+  trendStatus: string | null;
+}
+
+export interface MorningBrief {
+  generatedAt: Date | null;
+  activeOrigin: string | null;
+  /** Season context so the brief opens with where the crop cycle stands. */
+  items: BriefItem[];
+  positives: BriefItem[];
+  totals: { items: number; narratives: number; districts: number };
+}
+
+/**
+ * The 07:00 brief — the five things an officer should know, assembled from
+ * already-computed findings rather than re-analysing anything.
+ *
+ * Ordering is deliberate: what needs attention, then what is moving, then
+ * what is going well. A brief that only ever carries bad news is one that
+ * stops being opened.
+ */
+export async function getMorningBrief(
+  db: Db,
+  activeOrigin: string | null,
+): Promise<MorningBrief> {
+  const findings = await getActiveFindings(db, activeOrigin);
+
+  const toItem = (
+    f: FindingWithNarrative,
+    kind: BriefItem["kind"],
+  ): BriefItem => {
+    const c = f.finding.components as {
+      districts?: string[];
+      independentVoices?: number;
+      seasonalReason?: string | null;
+    };
+    return {
+      kind,
+      findingId: f.finding.id,
+      narrativeId: f.narrative.id,
+      headline: f.narrative.title,
+      line: f.finding.summary,
+      districts: c.districts ?? [],
+      voices: c.independentVoices ?? 0,
+      seasonalReason: c.seasonalReason ?? null,
+      trendStatus: f.narrative.trendStatus,
+    };
+  };
+
+  const items: BriefItem[] = [];
+  const positives: BriefItem[] = [];
+
+  for (const f of findings) {
+    const stance = f.narrative.stanceSummary;
+    const total = Object.values(stance).reduce((a, b) => a + b, 0);
+    const criticalShare = total === 0 ? 0 : (stance["critical"] ?? 0) / total;
+    const supportiveShare = total === 0 ? 0 : (stance["supportive"] ?? 0) / total;
+
+    // A narrative read mostly positively belongs in the good-news column,
+    // not buried among problems.
+    if (supportiveShare >= 0.5 && criticalShare < 0.25) {
+      positives.push(toItem(f, "positive"));
+      continue;
+    }
+    const trend = f.narrative.trendStatus;
+    const kind: BriefItem["kind"] =
+      f.finding.category === "emerging"
+        ? "attention"
+        : trend === "rising" || trend === "emerging"
+          ? "escalating"
+          : "watch";
+    items.push(toItem(f, kind));
+  }
+
+  const order: Record<BriefItem["kind"], number> = {
+    attention: 0,
+    escalating: 1,
+    watch: 2,
+    positive: 3,
+  };
+  items.sort((a, b) => order[a.kind] - order[b.kind]);
+
+  const districts = new Set<string>();
+  for (const f of findings) Object.keys(f.narrative.districts).forEach((d) => districts.add(d));
+
+  return {
+    generatedAt: findings[0]?.finding.generatedAt ?? null,
+    activeOrigin,
+    items: items.slice(0, 5),
+    positives: positives.slice(0, 3),
+    totals: {
+      items: findings.reduce((sum, f) => sum + f.narrative.mentionCount, 0),
+      narratives: findings.length,
+      districts: districts.size,
+    },
+  };
+}
+
+export interface DistrictSignal {
+  key: string;
+  name: string;
+  nameTe: string | null;
+  mentionCount: number;
+  voices: number;
+  topics: { topic: string; count: number }[];
+  criticalShare: number;
+  narratives: { id: string; title: string; count: number }[];
+}
+
+export interface DistrictOverview {
+  districts: DistrictSignal[];
+  /** Items whose location could not be evidenced — shown, never distributed. */
+  unlocatedCount: number;
+  locatedCount: number;
+}
+
+/**
+ * District-level signal for the state map.
+ *
+ * Counts come from enriched mentions that carry an evidenced district. Items
+ * without location evidence are reported as a separate figure and never
+ * apportioned across districts to make the map look complete.
+ */
+export async function getDistrictOverview(
+  db: Db,
+  activeOrigin: string | null,
+): Promise<DistrictOverview> {
+  const rows = await db
+    .select()
+    .from(mentions)
+    .where(eq(mentions.relevanceStatus, "accepted"));
+
+  const scoped = rows.filter(
+    (m) => (!activeOrigin || m.dataOrigin === activeOrigin) && m.status !== "duplicate",
+  );
+
+  const links = await db.select().from(narrativeMentions);
+  const narrativeRows = await db.select().from(narratives);
+  const narrativeById = new Map(narrativeRows.map((n) => [n.id, n]));
+  const narrativesByMention = new Map<string, string[]>();
+  for (const l of links) {
+    if (l.role === "duplicate") continue;
+    const list = narrativesByMention.get(l.mentionId) ?? [];
+    list.push(l.narrativeId);
+    narrativesByMention.set(l.mentionId, list);
+  }
+
+  const byDistrict = new Map<string, DistrictSignal & { authorIds: Set<string> }>();
+  let unlocated = 0;
+
+  for (const m of scoped) {
+    if (!m.district) {
+      unlocated++;
+      continue;
+    }
+    const key = m.district.toLowerCase().replace(/\s+/g, "-");
+    let entry = byDistrict.get(key);
+    if (!entry) {
+      entry = {
+        key,
+        name: m.district,
+        nameTe: null,
+        mentionCount: 0,
+        voices: 0,
+        topics: [],
+        criticalShare: 0,
+        narratives: [],
+        authorIds: new Set<string>(),
+      };
+      byDistrict.set(key, entry);
+    }
+    entry.mentionCount++;
+    entry.authorIds.add(m.authorId ?? m.id);
+
+    for (const topic of m.topics) {
+      const t = entry.topics.find((x) => x.topic === topic);
+      if (t) t.count++;
+      else entry.topics.push({ topic, count: 1 });
+    }
+    for (const nid of narrativesByMention.get(m.id) ?? []) {
+      const narrative = narrativeById.get(nid);
+      if (!narrative) continue;
+      const n = entry.narratives.find((x) => x.id === nid);
+      if (n) n.count++;
+      else entry.narratives.push({ id: nid, title: narrative.title, count: 1 });
+    }
+  }
+
+  // Critical share per district, computed over stance-carrying items.
+  for (const [key, entry] of byDistrict) {
+    const districtItems = scoped.filter(
+      (m) => m.district && m.district.toLowerCase().replace(/\s+/g, "-") === key,
+    );
+    const stanced = districtItems.filter((m) => m.stance);
+    entry.criticalShare =
+      stanced.length === 0
+        ? 0
+        : stanced.filter((m) => m.stance === "critical").length / stanced.length;
+    entry.voices = entry.authorIds.size;
+    entry.topics.sort((a, b) => b.count - a.count);
+    entry.narratives.sort((a, b) => b.count - a.count);
+  }
+
+  // Drop the internal author set before returning the read model.
+  const districts: DistrictSignal[] = [...byDistrict.values()]
+    .map((entry) => {
+      const { authorIds, ...rest } = entry;
+      void authorIds;
+      return rest;
+    })
+    .sort((a, b) => b.mentionCount - a.mentionCount);
+
+  return {
+    districts,
+    unlocatedCount: unlocated,
+    locatedCount: scoped.length - unlocated,
+  };
+}

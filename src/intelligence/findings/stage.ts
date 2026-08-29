@@ -16,6 +16,7 @@ import {
   narratives,
 } from "@/db/schema";
 import { recordEvent } from "@/lib/events";
+import { seasonalUrgency } from "@/ontology/calendar";
 
 export interface FindingComponents {
   mentionCount: number;
@@ -30,6 +31,10 @@ export interface FindingComponents {
   divergenceObserved: boolean;
   governmentRelevant: boolean;
   duplicatesExcluded: number;
+  /** Agricultural-calendar weighting — see ontology/calendar.ts. */
+  seasonalMultiplier: number;
+  seasonalReason: string | null;
+  seasonalWindow: string | null;
 }
 
 /** Documented ranking: each component contributes a bounded, legible amount. */
@@ -41,7 +46,7 @@ export function rankScore(c: FindingComponents): number {
     (c.divergenceObserved ? 4 : 0) +
     (c.governmentRelevant ? 2 : 0) +
     c.farmerOriginatedShare * 3
-  );
+  ) * c.seasonalMultiplier;
 }
 
 export interface FindingStageResult {
@@ -70,6 +75,13 @@ export async function runFindingStage(db: Db): Promise<FindingStageResult> {
     const districts = Object.keys(narrative.districts);
     const sourceTypes = Object.keys(narrative.sourceMix);
 
+    /*
+     * Where the season stands changes how urgent the same issue is. The
+     * narrative key carries its topic ("topic" or "topic/subtopic").
+     */
+    const narrativeTopic = narrative.key.split("/")[0];
+    const seasonal = seasonalUrgency([narrativeTopic]);
+
     const voicedTotal = Object.values(voiceMix).reduce((a, b) => a + b, 0);
     const farmerOriginated =
       (voiceMix["farmer"] ?? 0) + (voiceMix["farmer_organisation"] ?? 0) + (voiceMix["fpo"] ?? 0);
@@ -96,8 +108,11 @@ export async function runFindingStage(db: Db): Promise<FindingStageResult> {
       farmerOriginatedShare: voicedTotal === 0 ? 0 : farmerOriginated / voicedTotal,
       criticalShare: stanceTotal === 0 ? 0 : (stanceSummary["critical"] ?? 0) / stanceTotal,
       divergenceObserved,
-      governmentRelevant: true, // every Phase 1 narrative concerns a government service area
+      governmentRelevant: true, // every narrative concerns a government service area
       duplicatesExcluded: 0, // filled below
+      seasonalMultiplier: seasonal.multiplier,
+      seasonalReason: seasonal.reason,
+      seasonalWindow: seasonal.windowLabel,
     };
 
     const dupLinks = await db
@@ -248,10 +263,19 @@ function composeCopy(
     ]
       .filter(Boolean)
       .join("; ") + ".";
-    const whyItMatters = c.divergenceObserved
-      ? "When independent farmer reports and official positioning diverge, leadership attention and field verification are usually warranted before the gap widens in public discussion."
-      : "Multi-district, multi-source growth in a service-delivery topic is an early operational signal for the Agriculture Department.";
-    const reason = `Generated because the narrative reached ${c.mentionCount} distinct items (duplicates excluded: ${c.duplicatesExcluded}), ${c.districtCount} districts and ${c.sourceTypeCount} source types — thresholds for an emerging signal (≥6 items, ≥2 districts, ≥3 source types).`;
+    const whyItMatters = [
+      c.seasonalReason ? `${c.seasonalReason}.` : null,
+      c.divergenceObserved
+        ? "When independent farmer reports and official positioning diverge, leadership attention and field verification are usually warranted before the gap widens in public discussion."
+        : "Multi-district, multi-source growth in a service-delivery topic is an early operational signal for the Agriculture Department.",
+    ]
+      .filter(Boolean)
+      .join(" ");
+    const reason =
+      `Generated because the narrative reached ${c.mentionCount} distinct items (duplicates excluded: ${c.duplicatesExcluded}), ${c.districtCount} districts and ${c.sourceTypeCount} source types — thresholds for an emerging signal (≥6 items, ≥2 districts, ≥3 source types).` +
+      (c.seasonalMultiplier !== 1
+        ? ` Ranking weighted ×${c.seasonalMultiplier} by the agricultural calendar: ${c.seasonalReason}.`
+        : "");
     return { headline, summary, whyItMatters, reason };
   }
 
@@ -260,8 +284,16 @@ function composeCopy(
     `${voicesPhrase}` +
     (c.districtCount > 0 ? `, currently concentrated in ${districtList}` : "") +
     ". Volume is below the emerging-signal threshold.";
-  const whyItMatters =
-    "Low-volume but consistent signals are tracked so growth or geographic spread is caught early.";
-  const reason = `Generated as a watch item: ${c.mentionCount} distinct items (≥2 required), below the emerging thresholds.`;
+  const whyItMatters = [
+    c.seasonalReason ? `${c.seasonalReason}.` : null,
+    "Low-volume but consistent signals are tracked so growth or geographic spread is caught early.",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const reason =
+    `Generated as a watch item: ${c.mentionCount} distinct items (≥2 required), below the emerging thresholds.` +
+    (c.seasonalMultiplier !== 1
+      ? ` Ranking weighted ×${c.seasonalMultiplier} by the agricultural calendar: ${c.seasonalReason}.`
+      : "");
   return { headline, summary, whyItMatters, reason };
 }

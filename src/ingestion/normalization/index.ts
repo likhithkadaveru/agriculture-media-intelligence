@@ -144,6 +144,9 @@ function normalizeNews(item: RawSourceItem, publishedAt: Date | null): Normalize
     title: headline,
     originalText: [headline, body].filter(Boolean).join("\n\n"),
     engagement: null,
+    thumbnailUrl: str(p.imageUrl),
+    // Articles carry their text inline; a transcript is not a concept here.
+    transcriptStatus: "not_applicable",
     dataOrigin: item.dataOrigin,
   };
 }

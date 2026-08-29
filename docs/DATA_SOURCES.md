@@ -117,3 +117,50 @@ configured) the official Data API under its terms. No private groups, no
 direct messages, no restricted accounts, no logged-in scraping, no attempt to
 bypass access controls. Collection is of public discourse in aggregate, not
 surveillance of individuals.
+
+## Active: news RSS (`news-rss`)
+
+Nine publisher feeds, all verified to return items before being added, all
+credential-free. Four publish in Telugu, five in English.
+
+| Publication | Language | Scope |
+|---|---|---|
+| V6 Velugu | Telugu | Telangana |
+| NTV Telugu | Telugu | Telugu-general |
+| Sakshi | Telugu | Telugu-general |
+| OneIndia Telugu | Telugu | Telugu-general |
+| Telangana Today | English | Telangana |
+| The Hans India — Telangana | English | Telangana |
+| The Hindu — Telangana | English | Telangana |
+| Deccan Chronicle | English | Telugu-general |
+| NDTV South | English | National — kept for escalation detection |
+
+Feeds vary far more than YouTube's uniform Atom output: RSS 2.0 and Atom,
+`description` vs `content:encoded` vs `summary`, HTML-laden bodies,
+inconsistent date formats, and images in enclosures, `media:content` or inline
+markup. The connector absorbs all of it so the pipeline sees one shape, and
+strips HTML to plain text while preserving line structure for the boilerplate
+stage. Polled every 4 hours — a Telangana desk turns over faster than a
+channel's upload schedule.
+
+## Transcription — what is and is not possible
+
+**Third-party YouTube videos cannot be legitimately transcribed.** Both public
+caption endpoints (`video.google.com/timedtext` and
+`youtube.com/api/timedtext`) now return empty responses; the Data API's
+`captions.download` requires OAuth as the video's owner. Downloading audio for
+speech recognition would breach YouTube's terms.
+
+So video mentions record `transcript_status = "unavailable"` and are analysed
+from title, description and metadata — which the interface states on every
+affected card rather than implying fuller analysis than occurred.
+
+What *is* available, and worth having:
+
+- **Telugu text is already fully processed** — detected, translated and
+  analysed end to end. The language barrier is solved for text.
+- **YouTube comments** (Data API, needs `YOUTUBE_API_KEY`) are often a better
+  source of farmer voice than a broadcast transcript, since they carry the
+  audience rather than the presenter.
+- **Government-owned video** can be transcribed legitimately, because the
+  department owns the asset and can authorise it.

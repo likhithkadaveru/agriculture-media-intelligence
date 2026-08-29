@@ -20,6 +20,7 @@ import {
 } from "@/ingestion/router/scheduler";
 import { DemoSeedConnector } from "@/ingestion/connectors/demo-seed";
 import { YouTubeRssConnector } from "@/ingestion/connectors/youtube-rss";
+import { NewsRssConnector } from "@/ingestion/connectors/news-rss";
 import { YouTubeApiConnector } from "@/ingestion/connectors/youtube-api";
 import { adjudicateNarratives } from "@/intelligence/narratives/adjudicate";
 import { runRelevanceStage } from "@/intelligence/relevance/stage";
@@ -42,6 +43,7 @@ export type JobResult = Record<string, unknown>;
 registerConnector("demo-seed", () => new DemoSeedConnector());
 registerConnector("youtube-rss", () => new YouTubeRssConnector());
 registerConnector("youtube-api", () => new YouTubeApiConnector());
+registerConnector("news-rss", () => new NewsRssConnector());
 
 /** Seed the locations table from the ontology (idempotent). */
 export async function ensureLocations(db: Db): Promise<void> {
@@ -96,10 +98,14 @@ export const jobs = {
     if (seeded > 0) ctx.log(`scheduler: seeded ${seeded} collection queries`);
 
     const results: Record<string, { queries: number; collected: number; newMentions: number }> = {};
-    const connectors = ["youtube-rss", ...(process.env.YOUTUBE_API_KEY ? ["youtube-api"] : [])];
+    const connectors = [
+      "youtube-rss",
+      "news-rss",
+      ...(process.env.YOUTUBE_API_KEY ? ["youtube-api"] : []),
+    ];
 
     for (const connectorKey of connectors) {
-      const limit = connectorKey === "youtube-rss" ? 20 : 8; // API quota guard
+      const limit = connectorKey === "youtube-api" ? 8 : 20; // API quota guard
       const due = await getDueQueries(ctx.db, connectorKey, limit);
       let collected = 0;
       let newMentions = 0;

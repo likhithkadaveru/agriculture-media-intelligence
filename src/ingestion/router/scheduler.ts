@@ -3,6 +3,7 @@
  *
  * collection_queries rows describe all planned collection work:
  * - youtube-rss: one row per curated channel (query = channel id)
+ * - news-rss: one row per publication feed (query = feed key)
  * - youtube-api: ontology-generated search queries (dormant without a key)
  *
  * The scheduler picks due queries (next_run_at <= now) in tier/priority
@@ -15,6 +16,7 @@ import type { Db } from "@/db/client";
 import { collectionQueries, collectionRuns, mentions, rawItems } from "@/db/schema";
 import { generateCollectionQueries } from "@/ontology/queries";
 import { YOUTUBE_CHANNELS } from "@/ingestion/connectors/youtube-rss/channels";
+import { NEWS_FEEDS } from "@/ingestion/connectors/news-rss/feeds";
 
 /** Idempotently upsert the planned query set from configuration. */
 export async function seedCollectionQueries(db: Db): Promise<{ seeded: number }> {
@@ -40,6 +42,28 @@ export async function seedCollectionQueries(db: Db): Promise<{ seeded: number }>
       frequencyHours: 6,
       expectedNoise: channel.kind === "agriculture_programme" ? "low" : "high",
       enabled: channel.enabled,
+    });
+    seeded++;
+  }
+
+  // News publication feeds — Tier A. Publishers post continuously, and a
+  // Telangana desk turns over faster than a channel's upload schedule, so
+  // these poll more often than the video channels.
+  for (const feed of NEWS_FEEDS) {
+    const key = `news-rss::${feed.key}`;
+    if (have.has(key)) continue;
+    await db.insert(collectionQueries).values({
+      id: randomUUID(),
+      connector: "news-rss",
+      query: feed.key,
+      label: feed.name,
+      language: feed.language,
+      tier: "a",
+      priority: feed.scope === "telangana" ? 100 : 80,
+      frequencyHours: 4,
+      expectedNoise:
+        feed.scope === "telangana" ? "medium" : feed.scope === "national" ? "high" : "medium",
+      enabled: feed.enabled,
     });
     seeded++;
   }
