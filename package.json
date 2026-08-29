@@ -20,7 +20,9 @@
     "audit:voice": "tsx --tsconfig tsconfig.scripts.json scripts/audit-report.ts voice",
     "audit:dedup": "tsx --tsconfig tsconfig.scripts.json scripts/audit-report.ts dedup",
     "backfill": "tsx --tsconfig tsconfig.scripts.json scripts/backfill.ts",
-    "scheduler": "tsx --tsconfig tsconfig.scripts.json scripts/scheduler.ts"
+    "scheduler": "tsx --tsconfig tsconfig.scripts.json scripts/scheduler.ts",
+    "db:export": "tsx --tsconfig tsconfig.scripts.json scripts/export-import.ts export",
+    "db:import": "tsx --tsconfig tsconfig.scripts.json scripts/export-import.ts import"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.7",

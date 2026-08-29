@@ -37,6 +37,18 @@ export function SiteHeader({
   const env = activeOrigin ? ENVIRONMENTS[activeOrigin] : null;
   return (
     <>
+      {/*
+        This system is designed FOR government use but is not a government
+        property. On a public URL the letterhead styling alone could imply
+        otherwise, so the status is stated above everything else and is not
+        dismissible.
+      */}
+      <div className="bg-[var(--ink)] px-6 py-1.5 text-center">
+        <span className="kicker text-[10.5px] text-[var(--paper)] opacity-90">
+          Independent prototype · demonstration only · not affiliated with or endorsed by the
+          Government of Telangana
+        </span>
+      </div>
       {env && (
         <div className={`border-b px-6 py-1.5 text-center ${env.className}`}>
           <span className="kicker">{env.label}</span>
@@ -50,13 +62,13 @@ export function SiteHeader({
             <SealMark size={46} />
             <div>
               <div className="kicker text-seal">
-                తెలంగాణ ప్రభుత్వం · Government of Telangana
+                Telangana Agriculture · Public discourse monitoring
               </div>
               <div className="headline-serif mt-1 text-[27px] leading-none text-ink">
                 Agriculture Intelligence
               </div>
               <div className="mt-1.5 text-[11.5px] tracking-[0.02em] text-ink-muted">
-                Department of Agriculture · Public discourse monitoring
+                Prototype · not an official Government of Telangana system
               </div>
             </div>
           </Link>

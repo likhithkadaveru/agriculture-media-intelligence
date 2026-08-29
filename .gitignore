@@ -45,3 +45,6 @@ next-env.d.ts
 
 # throwaway inspection scripts
 scripts/audit/
+
+# corpus export used to seed the hosted database
+data/export.json
