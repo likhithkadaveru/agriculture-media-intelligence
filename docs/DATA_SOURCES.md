@@ -120,8 +120,8 @@ surveillance of individuals.
 
 ## Active: news RSS (`news-rss`)
 
-Nine publisher feeds, all verified to return items before being added, all
-credential-free. Four publish in Telugu, five in English.
+Fifteen publisher feeds, every one probed through the real parser before
+being added, all credential-free. Five publish in Telugu, ten in English.
 
 | Publication | Language | Scope |
 |---|---|---|
@@ -134,6 +134,21 @@ credential-free. Four publish in Telugu, five in English.
 | The Hindu — Telangana | English | Telangana |
 | Deccan Chronicle | English | Telugu-general |
 | NDTV South | English | National — kept for escalation detection |
+| Mana Telangana | Telugu | Telangana — 125 items per poll |
+| Telangana Today — Telangana desk | English | Telangana — district desk, richest source of district-named stories |
+| The Hindu — Agriculture | English | National agriculture desk — low noise |
+| BusinessLine — Agri Business | English | Procurement, MSP, market prices |
+| Agriculture Post | English | National agriculture trade press |
+| Times of India — Hyderabad | English | Headline-only; contributes titles, not bodies |
+
+### Feeds tested and rejected
+
+Candidates are probed through the parser, not assumed. Rejected so far:
+Namasthe Telangana (malformed XML — nesting exceeds the parser's limit),
+Prajasakti and Down To Earth (feeds return zero items), Krishi Jagran
+(timeout / 404), and **Reddit**, whose public JSON API now returns 403
+without OAuth. A source that cannot be collected reliably is worse than no
+source, because it makes coverage look broader than it is.
 
 Feeds vary far more than YouTube's uniform Atom output: RSS 2.0 and Atom,
 `description` vs `content:encoded` vs `summary`, HTML-laden bodies,
