@@ -1,0 +1,145 @@
+/**
+ * Registered Apify sources.
+ *
+ * Each entry is a declaration, not code: actor id, how to build its input
+ * from a scheduler query, and how to turn one dataset row into a raw item.
+ * The platform normalizers do the rest, so nothing downstream ever sees an
+ * Apify response shape.
+ *
+ * Actor ids and input fields below were verified against Apify's public
+ * actor API rather than assumed.
+ */
+import type { ApifySourceSpec } from "./index";
+
+function str(v: unknown): string | null {
+  return typeof v === "string" && v.length > 0 ? v : null;
+}
+
+function num(v: unknown): number | null {
+  if (typeof v === "number") return v;
+  if (typeof v === "string" && v.trim() !== "" && !Number.isNaN(Number(v))) return Number(v);
+  return null;
+}
+
+function obj(v: unknown): Record<string, unknown> {
+  return typeof v === "object" && v !== null ? (v as Record<string, unknown>) : {};
+}
+
+/**
+ * X / Twitter search.
+ *
+ * Actor: apidojo/tweet-scraper (Tweet Scraper V2).
+ * Input fields confirmed from the actor's published input schema:
+ * searchTerms, maxItems, sort, tweetLanguage.
+ *
+ * This is the source that finally brings individual farmer voices in —
+ * YouTube and news give us broadcasters and publishers; X gives us people.
+ */
+export const X_SEARCH: ApifySourceSpec = {
+  key: "apify-x-search",
+  platform: "x",
+  actorId: "apidojo/tweet-scraper",
+
+  buildInput(query) {
+    if (!query.query) throw new Error("apify-x-search requires a search term");
+    return {
+      searchTerms: [query.query],
+      maxItems: query.limit ?? 40,
+      // "Latest" rather than "Top": an emerging complaint has no engagement
+      // yet, and engagement-ranked results would systematically hide exactly
+      // the early signal this system exists to find.
+      sort: "Latest",
+      onlyVerifiedUsers: false,
+    };
+  },
+
+  parseItem(item) {
+    const t = obj(item);
+    // The actor returns an id plus either `text` or `fullText`.
+    const id = str(t.id) ?? str(t.id_str) ?? str(t.conversationId);
+    const text = str(t.text) ?? str(t.fullText) ?? str(t.full_text);
+    if (!id || !text) return null;
+
+    const author = obj(t.author);
+    const handle = str(author.userName) ?? str(author.screen_name) ?? str(t.username);
+
+    return {
+      externalId: id,
+      payload: {
+        payloadKind: "apify-x-tweet",
+        id,
+        text,
+        url:
+          str(t.url) ??
+          str(t.twitterUrl) ??
+          (handle ? `https://x.com/${handle}/status/${id}` : null),
+        publishedAt: str(t.createdAt) ?? str(t.created_at),
+        author: {
+          name: str(author.name) ?? handle,
+          handle,
+          bio: str(author.description),
+          followers: num(author.followers) ?? num(author.followersCount),
+          isVerified: Boolean(author.isVerified ?? author.verified),
+        },
+        metrics: {
+          likes: num(t.likeCount) ?? num(t.favorite_count),
+          reposts: num(t.retweetCount) ?? num(t.retweet_count),
+          replies: num(t.replyCount) ?? num(t.reply_count),
+          views: num(t.viewCount),
+        },
+        lang: str(t.lang),
+      },
+    };
+  },
+};
+
+/**
+ * Instagram hashtag search.
+ *
+ * Actor: apify/instagram-hashtag-scraper. Public hashtag content only —
+ * never private accounts, never followers, never direct messages.
+ *
+ * Registered but NOT scheduled by default: Instagram agriculture content
+ * skews heavily promotional, and it should earn its quota by demonstrating
+ * yield before it competes with X for budget.
+ */
+export const INSTAGRAM_HASHTAG: ApifySourceSpec = {
+  key: "apify-instagram-hashtag",
+  platform: "web",
+  actorId: "apify/instagram-hashtag-scraper",
+
+  buildInput(query) {
+    if (!query.query) throw new Error("apify-instagram-hashtag requires a hashtag");
+    return {
+      hashtags: [query.query.replace(/^#/, "")],
+      resultsLimit: query.limit ?? 30,
+    };
+  },
+
+  parseItem(item) {
+    const p = obj(item);
+    const id = str(p.id) ?? str(p.shortCode);
+    const caption = str(p.caption);
+    if (!id || !caption) return null;
+    return {
+      externalId: id,
+      payload: {
+        payloadKind: "apify-instagram-post",
+        pageId: id,
+        title: caption.split("\n")[0].slice(0, 140),
+        body: caption,
+        siteName: str(p.ownerFullName) ?? str(p.ownerUsername) ?? "Instagram",
+        url: str(p.url),
+        publishedAt: str(p.timestamp),
+        imageUrl: str(p.displayUrl),
+        metrics: { likes: num(p.likesCount), comments: num(p.commentsCount) },
+      },
+    };
+  },
+};
+
+/** Sources registered with the connector registry. */
+export const APIFY_SOURCES: ApifySourceSpec[] = [X_SEARCH, INSTAGRAM_HASHTAG];
+
+/** Sources the scheduler seeds queries for. */
+export const SCHEDULED_APIFY_SOURCES = [X_SEARCH];

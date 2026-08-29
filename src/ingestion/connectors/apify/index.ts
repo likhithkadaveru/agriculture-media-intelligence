@@ -93,6 +93,13 @@ export class ApifyConnectorAdapter implements SourceConnector {
   }
 
   async normalize(item: RawSourceItem): Promise<NormalizedMention> {
-    return normalizeRawItem(item);
+    // Every registered source records publishedAt on its payload; parse it
+    // here so the pipeline receives a real timestamp rather than null.
+    const payload = item.payload as { publishedAt?: string | null } | null;
+    const raw = payload?.publishedAt ?? null;
+    const parsed = raw ? new Date(raw) : null;
+    return normalizeRawItem(item, {
+      publishedAt: parsed && !Number.isNaN(parsed.getTime()) ? parsed : null,
+    });
   }
 }

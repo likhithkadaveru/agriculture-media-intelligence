@@ -21,6 +21,8 @@ import {
 import { DemoSeedConnector } from "@/ingestion/connectors/demo-seed";
 import { YouTubeRssConnector } from "@/ingestion/connectors/youtube-rss";
 import { NewsRssConnector } from "@/ingestion/connectors/news-rss";
+import { ApifyConnectorAdapter } from "@/ingestion/connectors/apify";
+import { APIFY_SOURCES } from "@/ingestion/connectors/apify/sources";
 import { YouTubeApiConnector } from "@/ingestion/connectors/youtube-api";
 import { adjudicateNarratives } from "@/intelligence/narratives/adjudicate";
 import { runRelevanceStage } from "@/intelligence/relevance/stage";
@@ -44,6 +46,9 @@ registerConnector("demo-seed", () => new DemoSeedConnector());
 registerConnector("youtube-rss", () => new YouTubeRssConnector());
 registerConnector("youtube-api", () => new YouTubeApiConnector());
 registerConnector("news-rss", () => new NewsRssConnector());
+for (const spec of APIFY_SOURCES) {
+  registerConnector(spec.key, () => new ApifyConnectorAdapter(spec));
+}
 
 /** Seed the locations table from the ontology (idempotent). */
 export async function ensureLocations(db: Db): Promise<void> {
@@ -102,10 +107,15 @@ export const jobs = {
       "youtube-rss",
       "news-rss",
       ...(process.env.YOUTUBE_API_KEY ? ["youtube-api"] : []),
+      // Apify sources are paid per result, so they run only when a token is
+      // present and only for the sources the scheduler actually seeds.
+      ...(process.env.APIFY_API_TOKEN ? ["apify-x-search"] : []),
     ];
 
     for (const connectorKey of connectors) {
-      const limit = connectorKey === "youtube-api" ? 8 : 20; // API quota guard
+      // Cost guards: the API and Apify both bill per call, RSS does not.
+      const limit =
+        connectorKey === "youtube-api" ? 8 : connectorKey.startsWith("apify-") ? 6 : 20;
       const due = await getDueQueries(ctx.db, connectorKey, limit);
       let collected = 0;
       let newMentions = 0;

@@ -164,3 +164,49 @@ What *is* available, and worth having:
   audience rather than the presenter.
 - **Government-owned video** can be transcribed legitimately, because the
   department owns the asset and can authorise it.
+
+## Active when configured: Apify (`apify-x-search`)
+
+X / Twitter search through the Apify adapter. This is the source that brings
+**individual farmer voices** in — YouTube and news supply broadcasters and
+publishers; X supplies people.
+
+| | |
+|---|---|
+| Actor | `apidojo/tweet-scraper` (Tweet Scraper V2) |
+| Verified | actor id and input schema checked against Apify's public actor API |
+| Input | `searchTerms`, `maxItems`, `sort: "Latest"`, `onlyVerifiedUsers: false` |
+| Terms | the ten Tier A core terms, English and Telugu |
+| Cadence | every 12 hours, capped at 6 actor runs per cycle |
+
+**Sorted by Latest, never Top.** An emerging complaint has no engagement yet,
+so ranking by engagement would systematically hide exactly the early signal
+this system exists to find.
+
+**Cost control is deliberate.** Apify bills per result, so the scheduler seeds
+only core terms at a slow cadence — roughly 20 runs a day, against hundreds of
+free feed polls. Query rows are seeded whether or not a token is present, so
+the plan is visible in `npm run quality` before anything is paid for; the job
+layer skips the connector when `APIFY_API_TOKEN` is unset.
+
+Raise the limits deliberately in two places: `frequencyHours` in the scheduler
+seed, and the per-cycle cap in `src/ingestion/jobs`.
+
+### Registered but not scheduled: Instagram
+
+`apify/instagram-hashtag-scraper`, public hashtag content only — never private
+accounts, followers or direct messages. Registered so it can be enabled with
+one line, but left out of the schedule: Instagram agriculture content skews
+heavily promotional and should demonstrate yield before it competes with X for
+budget.
+
+### Setup
+
+The token goes in `.env.local`, which is git-ignored:
+
+```
+APIFY_API_TOKEN=apify_api_xxxxxxxx
+```
+
+Nothing else changes — the connector registers itself and the scheduler
+already holds its queries.

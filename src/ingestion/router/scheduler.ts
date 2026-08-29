@@ -4,6 +4,7 @@
  * collection_queries rows describe all planned collection work:
  * - youtube-rss: one row per curated channel (query = channel id)
  * - news-rss: one row per publication feed (query = feed key)
+ * - apify-*: one row per search term (query = the term)
  * - youtube-api: ontology-generated search queries (dormant without a key)
  *
  * The scheduler picks due queries (next_run_at <= now) in tier/priority
@@ -17,6 +18,7 @@ import { collectionQueries, collectionRuns, mentions, rawItems } from "@/db/sche
 import { generateCollectionQueries } from "@/ontology/queries";
 import { YOUTUBE_CHANNELS } from "@/ingestion/connectors/youtube-rss/channels";
 import { NEWS_FEEDS } from "@/ingestion/connectors/news-rss/feeds";
+import { SCHEDULED_APIFY_SOURCES } from "@/ingestion/connectors/apify/sources";
 
 /** Idempotently upsert the planned query set from configuration. */
 export async function seedCollectionQueries(db: Db): Promise<{ seeded: number }> {
@@ -85,6 +87,36 @@ export async function seedCollectionQueries(db: Db): Promise<{ seeded: number }>
       enabled: true,
     });
     seeded++;
+  }
+
+  /*
+   * Apify search terms. Apify bills per result, so unlike the free feeds
+   * these are deliberately few and slow: only the ten Tier A core terms,
+   * every 12 hours, capped at 6 queries per cycle by the job layer. That is
+   * roughly 20 actor runs a day rather than hundreds.
+   *
+   * Rows are seeded whether or not a token is present, so the plan is
+   * visible in `npm run quality` before anyone pays for anything; the job
+   * layer simply skips the connector when APIFY_API_TOKEN is unset.
+   */
+  for (const source of SCHEDULED_APIFY_SOURCES) {
+    for (const q of generateCollectionQueries().filter((g) => g.tier === "a")) {
+      const key = `${source.key}::${q.query}`;
+      if (have.has(key)) continue;
+      await db.insert(collectionQueries).values({
+        id: randomUUID(),
+        connector: source.key,
+        query: q.query,
+        label: null,
+        language: q.language,
+        tier: "a",
+        priority: q.priority,
+        frequencyHours: 12,
+        expectedNoise: "high",
+        enabled: true,
+      });
+      seeded++;
+    }
   }
 
   return { seeded };
