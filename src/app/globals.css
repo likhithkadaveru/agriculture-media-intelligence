@@ -159,15 +159,21 @@ details.provenance > summary {
   list-style: none;
   user-select: none;
 }
-details.provenance > summary::-webkit-details-marker {
+/*
+ * Safari draws its own disclosure triangle and ignores list-style: none, so
+ * it needs saying explicitly. Applied to every summary rather than only the
+ * provenance blocks — the district list is a disclosure too now, and a stray
+ * platform triangle beside a section heading looks like a defect.
+ */
+details > summary::-webkit-details-marker {
   display: none;
 }
-details.provenance > summary .disclosure::before {
+details > summary .disclosure::before {
   content: "+";
   display: inline-block;
   width: 1em;
 }
-details.provenance[open] > summary .disclosure::before {
+details[open] > summary .disclosure::before {
   content: "–";
 }
 
@@ -212,8 +218,22 @@ details.provenance[open] > summary .disclosure::before {
   font-size: 17px;
 }
 @media (max-width: 640px) {
+  /*
+   * District names come off the map on a phone.
+   *
+   * At this width the shapes are a few millimetres across, so a name scaled
+   * to stay legible is wider than the district it labels — "Medchal-
+   * Malkajgiri" landed across Hyderabad, "Rajanna Sircilla" across
+   * Karimnagar, and Bhadradri Kothagudem ran off the edge entirely. The
+   * result was a thicket that had to be decoded rather than read.
+   *
+   * The map keeps what it is genuinely good at on a small screen — where the
+   * pressure is, by colour, and how much, by number. Which district is
+   * answered by tapping it, and by the list below, both of which have room
+   * for a full name.
+   */
   .map-label {
-    font-size: 34px;
+    display: none;
   }
   .map-label-count {
     font-size: 30px;

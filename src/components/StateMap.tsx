@@ -1,5 +1,6 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
 import Link from "next/link";
 
 import { DISTRICT_SHAPES, MAP_HEIGHT, MAP_WIDTH } from "@/ontology/geo";
@@ -50,22 +51,60 @@ function labelInk(d: CoverageDistrict | undefined): string {
   return Math.abs(d.balance) >= 0.67 ? "#ffffff" : "var(--ink)";
 }
 
+/*
+ * Whether the viewport is phone-width, read the same way AlertOptIn reads
+ * capabilities: useSyncExternalStore, so there is no setState-in-effect and
+ * no hydration mismatch. The server snapshot says "narrow" deliberately —
+ * officials read this on a phone, so the mobile layout is the one that must
+ * render correctly on first paint, and the desktop expansion happens on
+ * hydration where nobody is watching for it.
+ */
+const NARROW = "(max-width: 639px)";
+
+function subscribeToWidth(onChange: () => void): () => void {
+  const mq = window.matchMedia(NARROW);
+  mq.addEventListener("change", onChange);
+  return () => mq.removeEventListener("change", onChange);
+}
+
+function useIsNarrow(): boolean {
+  return useSyncExternalStore(
+    subscribeToWidth,
+    () => window.matchMedia(NARROW).matches,
+    () => true,
+  );
+}
+
 export function StateMap({
   coverage,
+  totalsCoverage,
   selected,
   onSelect,
 }: {
   coverage: CoverageDistrict[];
+  /**
+   * Unfiltered coverage for the totals panel.
+   *
+   * The map is scoped by the active lens; the totals are not. Scoping both
+   * meant the default Unfavourable view reported "Favourable items 0" when
+   * there were sixteen — an official landing on the page was told plainly
+   * that nothing good was being said, which is a different claim from "this
+   * view shows the unfavourable ones". Defaults to `coverage` so a caller
+   * that does not filter is unaffected.
+   */
+  totalsCoverage?: CoverageDistrict[];
   /** District name currently isolated, or null for the whole state. */
   selected?: string | null;
   /** Tapping a district calls this with its name, or null to clear it. */
   onSelect?: (district: string | null) => void;
 }) {
+  const narrow = useIsNarrow();
   const byId = new Map(coverage.map((c) => [c.id, c]));
   const nameById = new Map(DISTRICTS.map((d) => [d.id, d.en]));
   const withEvidence = coverage.filter((c) => c.total > 0);
 
-  const totals = withEvidence.reduce(
+  // Totals describe the whole corpus, not the active lens — see totalsCoverage.
+  const totals = (totalsCoverage ?? coverage).reduce(
     (acc, c) => ({
       favourable: acc.favourable + c.favourable,
       unfavourable: acc.unfavourable + c.unfavourable,
@@ -202,8 +241,23 @@ export function StateMap({
         </dl>
 
         {withEvidence.length > 0 && (
-          <div className="border-t border-border pt-4">
-            <h3 className="kicker text-ink-faint">Districts with evidence</h3>
+          /*
+           * Collapsed on a phone. Twenty districts at a 44px tap target is
+           * most of a screen spent on a list an officer consults rather than
+           * reads, pushing everything after it out of reach. The summary
+           * carries the count so the section still says what it holds while
+           * shut.
+           */
+          <details open={!narrow} className="border-t border-border pt-4">
+            <summary className="flex cursor-pointer list-none items-center gap-2 sm:cursor-default">
+              <h3 className="kicker text-ink-faint">Districts with evidence</h3>
+              <span className="text-[12px] tabular-nums text-ink-faint">
+                {withEvidence.length}
+              </span>
+              <span aria-hidden className="ml-auto text-ink-faint sm:hidden">
+                <span className="disclosure" />
+              </span>
+            </summary>
             <ul className="mt-2 sm:space-y-1.5">
               {withEvidence
                 .slice()
@@ -240,7 +294,7 @@ export function StateMap({
                   </li>
                 ))}
             </ul>
-          </div>
+          </details>
         )}
       </div>
     </div>

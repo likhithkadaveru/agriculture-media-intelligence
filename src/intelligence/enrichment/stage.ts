@@ -50,6 +50,9 @@ export async function runEnrichmentStage(
     .where(inArray(locations.key, DISTRICTS.map((d) => d.id)));
   const districtIdByKey = new Map(districtRows.map((r) => [r.key, r.id]));
   const districtNameByKey = new Map(DISTRICTS.map((d) => [d.id, d.en]));
+  /** Canonical district name, or null when the id is not one of the 33. */
+  const canonicalDistrict = (id: string | null): string | null =>
+    id ? (districtNameByKey.get(id) ?? null) : null;
 
   let succeeded = 0;
   let failed = 0;
@@ -137,8 +140,24 @@ export async function runEnrichmentStage(
           schemes: result.schemes,
           crops: result.crops,
           governmentEntities: result.governmentEntities,
-          district: result.district ? (districtNameByKey.get(result.district) ?? result.district) : null,
-          districtId: result.district ? (districtIdByKey.get(result.district) ?? null) : null,
+          /*
+           * A district the ontology does not know is discarded, not stored.
+           *
+           * The old fallback kept whatever the model returned, so free text
+           * reached the column and the command screen counted it: live data
+           * held "vicarabad" splitting Vikarabad's items across two
+           * spellings, "adidl?" which is not a place, and "nellore" — an
+           * Andhra Pradesh district, presented as Telangana by a system that
+           * exists partly to keep Andhra coverage out. The visible symptom
+           * was a standing band reading "35/33 districts".
+           *
+           * The prompt already says unknown is correct and common, so a null
+           * here is the answer it was told to give.
+           */
+          district: canonicalDistrict(result.district),
+          districtId: canonicalDistrict(result.district)
+            ? (districtIdByKey.get(result.district!) ?? null)
+            : null,
           mandal: result.mandal,
           locationConfidence: result.locationConfidence,
           sentiment: result.sentiment,

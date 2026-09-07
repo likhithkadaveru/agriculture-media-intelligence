@@ -238,7 +238,12 @@ export function CommandBoard({ data }: { data: BoardData }) {
           </p>
         </div>
         <div className="mt-5">
-          <StateMap coverage={coverage} selected={district} onSelect={setDistrict} />
+          <StateMap
+            coverage={coverage}
+            totalsCoverage={data.coverage}
+            selected={district}
+            onSelect={setDistrict}
+          />
         </div>
         <p className="mt-4 text-[12px] leading-relaxed text-ink-faint">
           {formatNumber(data.unlocatedCount)} items carried no location evidence and are left
