@@ -41,10 +41,19 @@ const STANCE: Record<string, { label: string; className: string; rule: string }>
 
 export function CoverageFeed({
   items,
+  total,
   district,
   onClearDistrict,
 }: {
   items: CoverageItem[];
+  /**
+   * How many items exist in this view across the whole corpus.
+   *
+   * The feed renders a recent window, so without this the list silently
+   * disagrees with the tab above it — "Unfavourable 52" over six rows. Saying
+   * "6 of 52 most recent" costs one line and removes the contradiction.
+   */
+  total?: number;
   /** District the list is currently narrowed to, if any. */
   district?: string | null;
   onClearDistrict?: () => void;
@@ -85,7 +94,9 @@ export function CoverageFeed({
           {district ? (
             <>
               <span className="font-medium text-ink-secondary">{district}</span> ·{" "}
-              {items.length} item{items.length === 1 ? "" : "s"}
+              {total !== undefined && total > items.length
+                ? `${items.length} most recent of ${total}`
+                : `${items.length} item${items.length === 1 ? "" : "s"}`}
               {onClearDistrict && (
                 <button
                   type="button"
@@ -96,8 +107,10 @@ export function CoverageFeed({
                 </button>
               )}
             </>
+          ) : total !== undefined && total > items.length ? (
+            `${items.length} most recent of ${total} — press, broadcast and public posts`
           ) : (
-            `${items.length} most recent items across press, broadcast and public posts`
+            `${items.length} items across press, broadcast and public posts`
           )}
         </p>
       </div>

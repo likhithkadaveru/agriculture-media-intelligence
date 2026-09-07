@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import type { BriefItem, CoverageItem, MediaItem } from "@/db/queries";
+import type { BriefItem, CoverageCounts, CoverageItem, MediaItem } from "@/db/queries";
 import type { FindingComponents } from "@/intelligence/findings/stage";
 import type { CoverageDistrict } from "@/components/StateMap";
 import { StateMap } from "@/components/StateMap";
@@ -46,6 +46,8 @@ export interface BoardData {
   coverage: CoverageDistrict[];
   media: MediaItem[];
   coverage_feed: CoverageItem[];
+  /** Corpus-wide counts, not the feed window. */
+  coverageCounts: CoverageCounts;
   voiceMix: Record<string, number>;
   sourceMix: Record<string, number>;
   unlocatedCount: number;
@@ -120,18 +122,28 @@ export function CommandBoard({ data }: { data: BoardData }) {
     return district ? byLens.filter((c) => c.district === district) : byLens;
   }, [lens, district, data.coverage_feed]);
 
-  /** Tab counts, computed before the district filter so the tabs stay stable. */
+  /*
+   * Tab counts come from the corpus, never from the feed window. Counting the
+   * window made the tab say 6 unfavourable while the totals panel beside it
+   * said 52 — the same screen disagreeing with itself, which is the fastest
+   * way to lose an official's trust in every other number on it.
+   */
   const lensCounts = useMemo(() => {
-    const scoped = district
-      ? data.coverage_feed.filter((c) => c.district === district)
-      : data.coverage_feed;
+    const c = district
+      ? (data.coverageCounts.byDistrict[district] ?? {
+          unfavourable: 0,
+          factual: 0,
+          favourable: 0,
+          all: 0,
+        })
+      : data.coverageCounts;
     return {
-      unfavourable: scoped.filter((c) => c.stance && LENS_STANCES.unfavourable.includes(c.stance)).length,
-      factual: scoped.filter((c) => c.stance === "neutral").length,
-      favourable: scoped.filter((c) => c.stance === "supportive").length,
-      all: scoped.length,
+      unfavourable: c.unfavourable,
+      factual: c.factual,
+      favourable: c.favourable,
+      all: c.all,
     } as Record<Lens, number>;
-  }, [district, data.coverage_feed]);
+  }, [district, data.coverageCounts]);
 
   const grouped = groupVoiceMix(data.voiceMix);
   const voiceSegments = VOICE_CLASSES.map((vc) => ({
@@ -280,6 +292,7 @@ export function CommandBoard({ data }: { data: BoardData }) {
         {(
           <CoverageFeed
             items={coverageFeed}
+            total={lensCounts[lens]}
             district={district}
             onClearDistrict={() => setDistrict(null)}
           />

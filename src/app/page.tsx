@@ -1,5 +1,10 @@
 import { getDb } from "@/db/client";
-import { getCommandView, getCoverageByDistrict, getCoverageFeed } from "@/db/queries";
+import {
+  getCommandView,
+  getCoverageByDistrict,
+  getCoverageCounts,
+  getCoverageFeed,
+} from "@/db/queries";
 import type { FindingComponents } from "@/intelligence/findings/stage";
 import { SiteHeader } from "@/components/SiteHeader";
 import { CommandBoard, type BoardData } from "@/components/CommandBoard";
@@ -20,9 +25,15 @@ export default async function CommandPage() {
   const { db } = await getDb();
   const view = await getCommandView(db);
   const { env, brief, findings, districts, media, voiceMix, sourceMix } = view;
-  const [coverage, coverageFeed] = await Promise.all([
+  const [coverage, coverageFeed, coverageCounts] = await Promise.all([
     getCoverageByDistrict(db, env.activeOrigin),
-    getCoverageFeed(db, env.activeOrigin, 30),
+    /*
+     * The feed is a recent window for reading; the counts describe the whole
+     * corpus. Keeping them separate is what stops the tabs contradicting the
+     * totals panel beside them.
+     */
+    getCoverageFeed(db, env.activeOrigin, 60),
+    getCoverageCounts(db, env.activeOrigin),
   ]);
   const season = getSeasonContext();
 
@@ -38,6 +49,7 @@ export default async function CommandPage() {
     coverage,
     media,
     coverage_feed: coverageFeed,
+    coverageCounts,
     voiceMix,
     sourceMix,
     unlocatedCount: districts.unlocatedCount,
@@ -46,8 +58,15 @@ export default async function CommandPage() {
   };
 
   const hasAnything = brief.items.length > 0 || brief.positives.length > 0;
-  const unfavourable = coverage.reduce((s, c) => s + c.unfavourable, 0);
-  const favourable = coverage.reduce((s, c) => s + c.favourable, 0);
+  /*
+   * From the corpus counts, not the district map. Summing the map meant the
+   * standing band said 52 unfavourable while the tab directly beneath it said
+   * 109 — the map can only count items whose district was evidenced, which is
+   * fewer than half. A headline figure has to describe the whole population
+   * it sits above.
+   */
+  const unfavourable = coverageCounts.unfavourable;
+  const favourable = coverageCounts.favourable;
 
   return (
     <div className="min-h-screen">

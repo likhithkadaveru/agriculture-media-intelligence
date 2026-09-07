@@ -219,15 +219,25 @@ export function StateMap({
           </div>
         </div>
 
+        {/*
+          These totals count only items carrying an evidenced district, which
+          is a smaller population than the coverage tabs above. Saying so is
+          the difference between a second view of the data and a screen that
+          appears to contradict itself.
+        */}
+        <p className="text-[11.5px] leading-snug text-ink-faint">
+          Items with an evidenced district. Coverage without a district is
+          counted in the tabs above but cannot be placed on the map.
+        </p>
         <dl className="space-y-2 border-t border-border pt-4 text-[13px]">
           <div className="flex items-baseline justify-between gap-3">
-            <dt className="text-ink-muted">Unfavourable items</dt>
+            <dt className="text-ink-muted">Unfavourable</dt>
             <dd className="metric-number text-[17px] text-critical">
               {formatNumber(totals.unfavourable)}
             </dd>
           </div>
           <div className="flex items-baseline justify-between gap-3">
-            <dt className="text-ink-muted">Favourable items</dt>
+            <dt className="text-ink-muted">Favourable</dt>
             <dd className="metric-number text-[17px] text-positive">
               {formatNumber(totals.favourable)}
             </dd>

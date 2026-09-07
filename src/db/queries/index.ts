@@ -46,7 +46,11 @@ export interface EnvironmentInfo {
 
 export async function getEnvironmentInfo(db: Db): Promise<EnvironmentInfo> {
   const mentionRows = await db
-    .select({ dataOrigin: mentions.dataOrigin, relevanceStatus: mentions.relevanceStatus })
+    .select({
+      dataOrigin: mentions.dataOrigin,
+      relevanceStatus: mentions.relevanceStatus,
+      status: mentions.status,
+    })
     .from(mentions);
   const narrativeRows = await db
     .select({ id: narratives.id, dataOrigin: narratives.dataOrigin })
@@ -75,8 +79,17 @@ export async function getEnvironmentInfo(db: Db): Promise<EnvironmentInfo> {
     origins: [...new Set(mentionRows.map((m) => m.dataOrigin))],
     activeOrigin,
     totalMentions: mentionRows.length,
+    /*
+     * Duplicates excluded so this is the same population the coverage tabs
+     * count. It previously included them, so the standing band said 541 while
+     * the tab beside it said 511 — two true numbers describing two different
+     * things, with nothing on screen saying so.
+     */
     relevantMentions: mentionRows.filter(
-      (m) => m.relevanceStatus === "accepted" && (!activeOrigin || m.dataOrigin === activeOrigin),
+      (m) =>
+        m.relevanceStatus === "accepted" &&
+        m.status !== "duplicate" &&
+        (!activeOrigin || m.dataOrigin === activeOrigin),
     ).length,
     narrativeCount: narrativeRows.filter((n) => !activeOrigin || n.dataOrigin === activeOrigin)
       .length,
@@ -847,6 +860,68 @@ export interface CoverageItem {
  * for video; written coverage is scanned, not looked at, so it wants a
  * dense list an officer can run an eye down.
  */
+/**
+ * How many accepted items exist in each stance, and per district.
+ *
+ * Separate from getCoverageFeed on purpose. That returns a recent WINDOW for
+ * display; these are counts over the whole corpus. Deriving the tab counts
+ * from the window made the screen contradict itself — the totals panel said
+ * 52 unfavourable while the tab beside it said 6, because 6 was simply how
+ * many of the last 30 items happened to be unfavourable. Worse, tapping a
+ * district could show nothing at all while the map showed nineteen items
+ * there, since none were recent enough to be in the window.
+ *
+ * "mixed" is grouped with unfavourable to match the command screen's lens:
+ * it carries criticism, and an officer scanning for problems should see it.
+ */
+export interface CoverageCounts {
+  unfavourable: number;
+  factual: number;
+  favourable: number;
+  all: number;
+  /** The same four counts, per district name. */
+  byDistrict: Record<string, { unfavourable: number; factual: number; favourable: number; all: number }>;
+}
+
+export async function getCoverageCounts(
+  db: Db,
+  activeOrigin: string | null,
+): Promise<CoverageCounts> {
+  const rows = await db
+    .select({
+      stance: mentions.stance,
+      district: mentions.district,
+      dataOrigin: mentions.dataOrigin,
+      status: mentions.status,
+    })
+    .from(mentions)
+    .where(eq(mentions.relevanceStatus, "accepted"));
+
+  const empty = () => ({ unfavourable: 0, factual: 0, favourable: 0, all: 0 });
+  const out: CoverageCounts = { ...empty(), byDistrict: {} };
+
+  for (const m of rows) {
+    if (activeOrigin && m.dataOrigin !== activeOrigin) continue;
+    if (m.status === "duplicate") continue;
+    const bucket =
+      m.stance === "critical" || m.stance === "mixed"
+        ? "unfavourable"
+        : m.stance === "supportive"
+          ? "favourable"
+          : m.stance === "neutral"
+            ? "factual"
+            : null;
+    out.all++;
+    if (bucket) out[bucket]++;
+    if (m.district) {
+      const d = (out.byDistrict[m.district] ??= empty());
+      d.all++;
+      if (bucket) d[bucket]++;
+    }
+  }
+  return out;
+}
+
 export async function getCoverageFeed(
   db: Db,
   activeOrigin: string | null,
