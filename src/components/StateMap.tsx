@@ -119,7 +119,7 @@ export function StateMap({
         <svg
           viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`}
           role="img"
-          aria-label="Telangana districts shaded by the balance of favourable and unfavourable coverage"
+          aria-label="Telangana districts shaded by the balance of positive coverage and reported concerns"
           className="h-auto w-full"
         >
           <title>Coverage balance by district</title>
@@ -206,9 +206,9 @@ export function StateMap({
             ))}
           </div>
           <div className="mt-1.5 flex justify-between text-[11px] text-ink-muted">
-            <span>Unfavourable</span>
+            <span>Concern</span>
             <span>Mixed</span>
-            <span>Favourable</span>
+            <span>Positive</span>
           </div>
           <div className="mt-2 flex items-center gap-2 text-[11.5px] text-ink-faint">
             <span
@@ -231,13 +231,13 @@ export function StateMap({
         </p>
         <dl className="space-y-2 border-t border-border pt-4 text-[13px]">
           <div className="flex items-baseline justify-between gap-3">
-            <dt className="text-ink-muted">Unfavourable</dt>
+            <dt className="text-ink-muted">Concerns reported</dt>
             <dd className="metric-number text-[17px] text-critical">
               {formatNumber(totals.unfavourable)}
             </dd>
           </div>
           <div className="flex items-baseline justify-between gap-3">
-            <dt className="text-ink-muted">Favourable</dt>
+            <dt className="text-ink-muted">Positive</dt>
             <dd className="metric-number text-[17px] text-positive">
               {formatNumber(totals.favourable)}
             </dd>

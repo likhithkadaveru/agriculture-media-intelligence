@@ -55,11 +55,25 @@ export interface BoardData {
   totalDistricts: number;
 }
 
+/*
+ * Named for what an officer does with each, not for how the coverage reads.
+ *
+ * "Unfavourable" is a media-analytics word, and it invites the inference this
+ * system must never support: that critical coverage proves an operational
+ * failure. What the pipeline actually establishes is that a concern is being
+ * reported in public sources — whether it is true in the field is a question
+ * only a field officer can answer. "Needs verification" says exactly that,
+ * and it is also the honest description of what the tab contains.
+ */
 const LENSES: { key: Lens; label: string; hint: string }[] = [
-  { key: "unfavourable", label: "Unfavourable", hint: "Criticism and complaint — work this first" },
-  { key: "factual", label: "Factual", hint: "Reported without praise or blame" },
-  { key: "favourable", label: "Favourable", hint: "What is going well" },
-  { key: "all", label: "Everything", hint: "All tracked conversations" },
+  {
+    key: "unfavourable",
+    label: "Needs verification",
+    hint: "Concerns reported in public sources — not yet verified in the field",
+  },
+  { key: "factual", label: "Watchlist", hint: "Reported without praise or blame" },
+  { key: "favourable", label: "Positive developments", hint: "Favourable public reception" },
+  { key: "all", label: "All signals", hint: "Everything currently tracked" },
 ];
 
 export function CommandBoard({ data }: { data: BoardData }) {
@@ -164,7 +178,9 @@ export function CommandBoard({ data }: { data: BoardData }) {
         <div
           role="tablist"
           aria-label="Filter what is shown"
-          className="flex w-full rounded-md border border-border-strong bg-surface p-0.5 sm:inline-flex sm:w-auto"
+          /* Two rows on a phone. These labels are words, not one-liners, and
+             four of them on a 375px row clipped the last one entirely. */
+          className="grid w-full grid-cols-2 gap-0.5 rounded-md border border-border-strong bg-surface p-0.5 sm:inline-flex sm:w-auto sm:gap-0"
         >
           {LENSES.map((l) => {
             const active = lens === l.key;
@@ -176,7 +192,7 @@ export function CommandBoard({ data }: { data: BoardData }) {
                 aria-selected={active}
                 title={l.hint}
                 onClick={() => setLens(l.key)}
-                className={`min-h-[44px] flex-1 rounded px-4 py-2.5 text-[13.5px] font-medium transition-colors sm:min-h-0 sm:flex-none sm:py-1.5 ${
+                className={`min-h-[44px] rounded px-2 py-2.5 text-[12.5px] font-medium leading-tight transition-colors sm:min-h-0 sm:flex-none sm:px-4 sm:py-1.5 sm:text-[13.5px] ${
                   active
                     ? l.key === "unfavourable"
                       ? "bg-[var(--critical-soft)] text-critical"
@@ -193,13 +209,7 @@ export function CommandBoard({ data }: { data: BoardData }) {
           })}
         </div>
         <p className="text-[12.5px] text-ink-muted">
-          {lens === "unfavourable"
-            ? "Where public reporting is critical or mixed."
-            : lens === "favourable"
-              ? "Where public reception is favourable."
-              : lens === "factual"
-                ? "Reported without praise or blame — no action implied."
-                : "Everything currently tracked."}
+          {LENSES.find((l) => l.key === lens)?.hint}
         </p>
       </div>
 
@@ -212,7 +222,7 @@ export function CommandBoard({ data }: { data: BoardData }) {
             single time, while the feed below plainly has items.
           */}
           {lens === "factual"
-            ? "Factual coverage raises no findings — it is reported without praise or blame. The items themselves are below."
+            ? "Watchlist coverage raises no findings — it is reported without praise or blame. The items themselves are below."
             : "Nothing in this view right now."}
         </p>
       ) : (
@@ -243,10 +253,10 @@ export function CommandBoard({ data }: { data: BoardData }) {
             {district
               ? `Showing ${district} only — tap it again to clear.`
               : lens === "unfavourable"
-                ? "Districts with unfavourable coverage. Tap one to see its articles."
+                ? "Districts where concerns are reported. Tap one to see its evidence."
                 : lens === "favourable"
-                  ? "Districts with favourable coverage. Tap one to see its articles."
-                  : "Tap a district to see its articles."}
+                  ? "Districts with favourable coverage. Tap one to see its evidence."
+                  : "Tap a district to see its evidence."}
           </p>
         </div>
         <div className="mt-5">

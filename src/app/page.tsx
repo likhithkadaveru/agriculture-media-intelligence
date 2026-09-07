@@ -107,11 +107,11 @@ export default async function CommandPage() {
               <Stat label="Public items" value={formatNumber(env.relevantMentions)} />
               <Stat label="Conversations" value={String(env.narrativeCount)} />
               <Stat
-                label="Unfavourable"
+                label="Needs verification"
                 value={formatNumber(unfavourable)}
                 tone="critical"
               />
-              <Stat label="Favourable" value={formatNumber(favourable)} tone="positive" />
+              <Stat label="Positive" value={formatNumber(favourable)} tone="positive" />
               {/* Districts is the one state-wide figure among four counts of
                   items — spanning it is what stops the odd fifth cell from
                   reading as a wrap accident. */}

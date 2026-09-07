@@ -24,14 +24,22 @@ import { EventChip } from "@/components/badges";
 /** Items kept above the fold on small screens. */
 const MOBILE_VISIBLE = 10;
 
+/*
+ * Labels describe what the SOURCE said, never what is true on the ground.
+ *
+ * "Unfavourable" reads as a judgement the system is not entitled to make —
+ * this monitors public information and cannot establish whether a reported
+ * problem exists in the field. "Concern reported" is both narrower and
+ * accurate: a concern was reported, which is the whole of what is known.
+ */
 const STANCE: Record<string, { label: string; className: string; rule: string }> = {
   critical: {
-    label: "Unfavourable",
+    label: "Concern reported",
     className: "text-critical",
     rule: "bg-[var(--critical)]",
   },
   supportive: {
-    label: "Favourable",
+    label: "Positive",
     className: "text-positive",
     rule: "bg-[var(--positive)]",
   },
