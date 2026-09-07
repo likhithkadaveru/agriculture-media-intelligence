@@ -22,6 +22,20 @@ export type Db = NodePgDatabase<typeof schema> | PgliteDatabase<typeof schema>;
 
 const MIGRATIONS_FOLDER = path.join(process.cwd(), "src/db/migrations");
 
+/*
+ * Closing twice must be harmless. On a signal the scheduler closes the handle
+ * from its shutdown hook while the main path is still unwinding, and it then
+ * closes again on the way out — pg throws "Called end on pool more than once"
+ * for the second call, so an orderly Ctrl-C or a watchdog SIGTERM exited 1
+ * with a stack trace and read, in the log, exactly like a crash.
+ */
+function once(close: () => Promise<unknown>): () => Promise<void> {
+  let closing: Promise<unknown> | null = null;
+  // The promise is reused, not just a flag: a second caller should wait for
+  // the first close to finish rather than race ahead of it.
+  return () => (closing ??= close()).then(() => undefined);
+}
+
 export interface DbHandle {
   db: Db;
   driver: "pg" | "pglite";
@@ -57,7 +71,7 @@ export async function createDb(opts?: {
     if (migrateOnCreate) {
       await migratePg(db, { migrationsFolder: MIGRATIONS_FOLDER });
     }
-    return { db, driver: "pg", close: () => pool.end() };
+    return { db, driver: "pg", close: once(() => pool.end()) };
   }
 
   let pglite: PGlite;
@@ -72,7 +86,7 @@ export async function createDb(opts?: {
   if (migrateOnCreate) {
     await migratePglite(db, { migrationsFolder: MIGRATIONS_FOLDER });
   }
-  return { db, driver: "pglite", close: () => pglite.close() };
+  return { db, driver: "pglite", close: once(() => pglite.close()) };
 }
 
 /**
