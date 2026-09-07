@@ -36,6 +36,35 @@ function once(close: () => Promise<unknown>): () => Promise<void> {
   return () => (closing ??= close()).then(() => undefined);
 }
 
+/**
+ * Fail loudly on a connection string that is not one.
+ *
+ * A .env file may quote its values and the loader strips those, but anything
+ * injecting the variable directly — GitHub Actions secrets, a systemd
+ * EnvironmentFile, a Docker -e flag — passes them through verbatim. pg then
+ * parses the leading quote as part of the host and reports
+ * `getaddrinfo EAI_AGAIN base`, naming a host nobody configured and saying
+ * nothing about the real fault. That cost a debugging session; the check
+ * costs a microsecond.
+ */
+function assertUsableUrl(url: string): void {
+  const quoted = /^['"]|['"]$/.test(url);
+  let parses = false;
+  try {
+    parses = ["postgres:", "postgresql:"].includes(new URL(url).protocol);
+  } catch {
+    parses = false;
+  }
+  if (quoted || !parses) {
+    throw new Error(
+      "DATABASE_URL is not a usable Postgres URL" +
+        (quoted ? " — it is wrapped in quotes, which belong in a .env file but not in the value itself." : ".") +
+        " Expected postgres://user:password@host/database. " +
+        `Got ${url.length} characters starting ${JSON.stringify(url.slice(0, 12))}.`,
+    );
+  }
+}
+
 export interface DbHandle {
   db: Db;
   driver: "pg" | "pglite";
@@ -52,6 +81,7 @@ export async function createDb(opts?: {
   const migrateOnCreate = opts?.migrateOnCreate ?? true;
 
   if (url && !opts?.memory) {
+    assertUsableUrl(url);
     /*
      * keepAlive matters for this workload specifically: the enrichment stage
      * sits idle ~55s between queries while an LLM call runs, which is long
