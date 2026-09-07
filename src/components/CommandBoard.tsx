@@ -8,6 +8,7 @@ import type { CoverageDistrict } from "@/components/StateMap";
 import { StateMap } from "@/components/StateMap";
 import { MediaCarousel } from "@/components/MediaCarousel";
 import { CoverageFeed } from "@/components/CoverageFeed";
+import { ShareBrief } from "@/components/ShareBrief";
 import { MixBar } from "@/components/viz";
 import { VOICE_CLASSES, PLATFORM_LABELS, formatNumber, groupVoiceMix } from "@/lib/format";
 
@@ -348,6 +349,12 @@ function districtSummary(districts: string[], named = 3): string {
   return `${districts.slice(0, named).join(" · ")} +${districts.length - named}`;
 }
 
+/** Absolute URL for a shared brief; relative links are useless in WhatsApp. */
+function siteUrl(): string {
+  if (typeof window !== "undefined") return window.location.origin;
+  return "https://agriculture.likhithlabs.com";
+}
+
 function LeadItem({
   item,
   components,
@@ -413,6 +420,22 @@ function LeadItem({
           See the evidence →
         </span>
       </dl>
+
+      {/*
+        Sharing sits on the lead card because that is the item most likely to
+        be passed to a district colleague, and a phone's real distribution
+        mechanism is WhatsApp rather than a second login.
+      */}
+      <div className="mt-4 border-t border-border pt-4">
+        <ShareBrief
+          signal={{
+            headline: item.headline,
+            districts: item.districts,
+            voices: item.voices,
+            url: `${siteUrl()}${detailHref(item)}`,
+          }}
+        />
+      </div>
     </Link>
   );
 }
