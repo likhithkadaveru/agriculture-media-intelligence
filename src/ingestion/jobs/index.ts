@@ -27,10 +27,12 @@ import { YouTubeApiConnector } from "@/ingestion/connectors/youtube-api";
 import { adjudicateNarratives } from "@/intelligence/narratives/adjudicate";
 import { runRelevanceStage } from "@/intelligence/relevance/stage";
 import { runEnrichmentStage } from "@/intelligence/enrichment/stage";
+import { runTranscriptStage } from "@/intelligence/enrichment/transcript";
 import { getEnricher } from "@/intelligence/enrichment/llm";
 import { runDedupStage } from "@/intelligence/dedup";
 import { runNarrativeStage } from "@/intelligence/narratives/stage";
 import { runFindingStage } from "@/intelligence/findings/stage";
+import { runAlertStage } from "@/intelligence/findings/alerts";
 import type { Enricher } from "@/intelligence/enrichment/schema";
 
 export interface JobContext {
@@ -45,6 +47,9 @@ export type JobResult = Record<string, unknown>;
 registerConnector("demo-seed", () => new DemoSeedConnector());
 registerConnector("youtube-rss", () => new YouTubeRssConnector());
 registerConnector("youtube-api", () => new YouTubeApiConnector());
+// Same class, eventType=live — see the connector's constructor for why a
+// separate key rather than a flag on the query.
+registerConnector("youtube-live", () => new YouTubeApiConnector(undefined, "live"));
 registerConnector("news-rss", () => new NewsRssConnector());
 for (const spec of APIFY_SOURCES) {
   registerConnector(spec.key, () => new ApifyConnectorAdapter(spec));
@@ -106,7 +111,7 @@ export const jobs = {
     const connectors = [
       "youtube-rss",
       "news-rss",
-      ...(process.env.YOUTUBE_API_KEY ? ["youtube-api"] : []),
+      ...(process.env.YOUTUBE_API_KEY ? ["youtube-api", "youtube-live"] : []),
       // Apify sources are paid per result, so they run only when a token is
       // present and only for the sources the scheduler actually seeds.
       ...(process.env.APIFY_API_TOKEN
@@ -116,8 +121,17 @@ export const jobs = {
 
     for (const connectorKey of connectors) {
       // Cost guards: the API and Apify both bill per call, RSS does not.
+      // Cost guards, in search.list calls per cycle. youtube-live is capped
+      // hardest: at 48 cycles a day it would otherwise spend the entire
+      // 10,000-unit daily quota before noon and take youtube-api down with it.
       const limit =
-        connectorKey === "youtube-api" ? 8 : connectorKey.startsWith("apify-") ? 5 : 20;
+        connectorKey === "youtube-live"
+          ? 1
+          : connectorKey === "youtube-api"
+            ? 8
+            : connectorKey.startsWith("apify-")
+              ? 5
+              : 20;
       const due = await getDueQueries(ctx.db, connectorKey, limit);
       let collected = 0;
       let newMentions = 0;
@@ -126,7 +140,7 @@ export const jobs = {
           const result = await runCollection(ctx.db, connectorKey, query.query);
           collected += result.collected;
           newMentions += result.newMentions;
-          await recordQueryRun(ctx.db, query.id, result.collected, query.frequencyHours);
+          await recordQueryRun(ctx.db, query.id, result.collected, query.frequencyMinutes);
           ctx.log(
             `${connectorKey} · ${query.label ?? query.query}: ${result.collected} items, ${result.newMentions} new`,
           );
@@ -147,6 +161,19 @@ export const jobs = {
     ctx.log(
       `relevance: ${relevance.assessed} assessed, ${relevance.accepted} accepted, ${relevance.rejected} rejected`,
     );
+    /*
+     * Transcripts run after relevance and before enrichment: after, because
+     * the actor bills per video and only accepted items are worth paying
+     * for; before, because the district is usually spoken rather than
+     * written, and enrichment is the stage that reads it.
+     */
+    const transcripts = await runTranscriptStage(ctx.db, { log: ctx.log });
+    if (transcripts.attempted > 0) {
+      ctx.log(
+        `transcripts: ${transcripts.attempted} attempted, ${transcripts.retrieved} retrieved, ` +
+          `${transcripts.unavailable} without captions, ${transcripts.failed} failed`,
+      );
+    }
     const enricher = ctx.enricher ?? (await getEnricher());
     ctx.log(`enrichment: using ${enricher.provider}/${enricher.model}`);
     const enrichment = await runEnrichmentStage(ctx.db, enricher);
@@ -169,8 +196,17 @@ export const jobs = {
     }
     const findings = await runFindingStage(ctx.db);
     ctx.log(`findings: ${findings.generated} generated`);
+    // Alerts go out last: a notification must never describe a finding that
+    // the site cannot yet show when the officer taps through to it.
+    const alerts = await runAlertStage(ctx.db, { log: ctx.log });
+    if (alerts.candidates > 0) {
+      ctx.log(
+        `alerts: ${alerts.alerted} sent to ${alerts.recipients} device(s), ` +
+          `${alerts.skipped} already notified`,
+      );
+    }
     await updateQueryYieldStats(ctx.db);
-    return { relevance, enrichment, dedup, narrative, findings };
+    return { relevance, transcripts, enrichment, dedup, narrative, findings, alerts };
   },
 } satisfies Record<string, (ctx: JobContext) => Promise<JobResult>>;
 

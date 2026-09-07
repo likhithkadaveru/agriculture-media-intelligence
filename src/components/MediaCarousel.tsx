@@ -85,7 +85,7 @@ export function MediaCarousel({ items }: { items: MediaItem[] }) {
             onClick={() => page(-1)}
             disabled={atStart}
             aria-label="Scroll media left"
-            className="h-8 w-9 rounded border border-border-strong bg-surface-2 text-ink-muted transition-colors hover:border-emerging hover:text-emerging disabled:opacity-30 disabled:hover:border-border-strong disabled:hover:text-ink-muted"
+            className="h-11 w-11 rounded border border-border-strong bg-surface-2 text-ink-muted transition-colors hover:border-emerging hover:text-emerging disabled:opacity-30 disabled:hover:border-border-strong disabled:hover:text-ink-muted sm:h-8 sm:w-9"
           >
             ‹
           </button>
@@ -94,7 +94,7 @@ export function MediaCarousel({ items }: { items: MediaItem[] }) {
             onClick={() => page(1)}
             disabled={atEnd}
             aria-label="Scroll media right"
-            className="h-8 w-9 rounded border border-border-strong bg-surface-2 text-ink-muted transition-colors hover:border-emerging hover:text-emerging disabled:opacity-30 disabled:hover:border-border-strong disabled:hover:text-ink-muted"
+            className="h-11 w-11 rounded border border-border-strong bg-surface-2 text-ink-muted transition-colors hover:border-emerging hover:text-emerging disabled:opacity-30 disabled:hover:border-border-strong disabled:hover:text-ink-muted sm:h-8 sm:w-9"
           >
             ›
           </button>
@@ -175,7 +175,7 @@ function MediaCard({ item }: { item: MediaItem }) {
   const likes = item.engagement?.likes;
 
   return (
-    <li className="w-[290px] flex-none snap-start">
+    <li className="w-[256px] flex-none snap-start sm:w-[290px]">
       <a
         href={item.url ?? undefined}
         target="_blank"

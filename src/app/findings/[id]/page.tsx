@@ -51,41 +51,44 @@ export default async function FindingPage({
     <div className="min-h-screen">
       <SiteHeader activeOrigin={env.activeOrigin} lastGeneratedAt={finding.generatedAt} />
 
-      <main className="mx-auto max-w-[1200px] px-6 pb-24">
-        <nav className="py-5">
-          <Link href="/" className="text-[13px] text-ink-muted hover:text-ink">
+      <main className="mx-auto max-w-[1200px] px-4 pb-16 sm:px-6 sm:pb-24">
+        <nav className="sm:py-5">
+          <Link
+            href="/"
+            className="inline-flex min-h-[44px] items-center text-[13px] text-ink-muted hover:text-ink sm:min-h-0"
+          >
             ← Now
           </Link>
         </nav>
 
         {/* Finding header */}
-        <header className="border-b border-border pb-8">
+        <header className="border-b border-border pb-6 sm:pb-8">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <CategoryKicker category={finding.category} />
             {c.divergenceObserved && (
               <span className="kicker text-critical">Official ↔ public divergence</span>
             )}
-            <span className="ml-auto">
+            <span className="w-full sm:ml-auto sm:w-auto">
               <ConfidenceMeter value={finding.confidence} label="Finding confidence" />
             </span>
           </div>
-          <h1 className="headline-serif mt-3 max-w-[26ch] text-[38px] text-ink">
+          <h1 className="headline-serif mt-3 max-w-[26ch] text-[clamp(24px,6.6vw,38px)] text-ink">
             {finding.headline}
           </h1>
-          <p className="mt-4 max-w-[75ch] text-[16px] text-ink-secondary">{finding.summary}</p>
+          <p className="mt-3 max-w-[75ch] text-[15px] text-ink-secondary sm:mt-4 sm:text-[16px]">{finding.summary}</p>
           {finding.whyItMatters && (
-            <p className="mt-4 max-w-[75ch] border-l-2 border-emerging pl-4 text-[14.5px] text-ink-secondary">
+            <p className="mt-4 max-w-[75ch] border-l-2 border-emerging pl-3 text-[14px] text-ink-secondary sm:pl-4 sm:text-[14.5px]">
               <span className="kicker mr-2 text-emerging">Why it matters</span>
               {finding.whyItMatters}
             </p>
           )}
         </header>
 
-        <div className="mt-8 grid gap-10 lg:grid-cols-[1fr_360px]">
+        <div className="mt-7 grid gap-8 sm:mt-8 lg:grid-cols-[1fr_360px] lg:gap-10">
           {/* MAIN column: evidence */}
           <section>
-            <div className="flex items-baseline justify-between">
-              <h2 className="headline-serif text-[22px] text-ink">Evidence</h2>
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              <h2 className="headline-serif text-[20px] text-ink sm:text-[22px]">Evidence</h2>
               <span className="text-[12.5px] text-ink-muted">
                 {evidence.length} canonical items
                 {c.duplicatesExcluded > 0 &&

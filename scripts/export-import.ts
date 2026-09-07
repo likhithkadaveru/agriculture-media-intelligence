@@ -14,6 +14,7 @@
  * the move, which is the whole point: an imported corpus must remain
  * traceable to its original sources.
  */
+import "./env";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { createDb } from "@/db/client";

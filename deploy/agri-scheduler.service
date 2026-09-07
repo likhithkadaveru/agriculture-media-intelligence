@@ -1,0 +1,48 @@
+# Collection daemon — the pipeline, running somewhere that is not a laptop.
+#
+# Continuous mode rather than a timer: scheduler.ts already loops, and a
+# single long-lived process cannot start a second copy on top of a cycle that
+# is still running. That was the failure mode under launchd, where a 45-minute
+# cycle silently ate the next tick.
+#
+# Install:
+#   sudo cp deploy/agri-scheduler.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now agri-scheduler
+# Watch:
+#   journalctl -u agri-scheduler -f
+
+[Unit]
+Description=Telangana agriculture media collection
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=agri
+WorkingDirectory=/opt/agri
+EnvironmentFile=/opt/agri/.env.local
+
+# Per-query cadence lives in collection_queries; this only decides how often
+# the system asks. The interval is counted AFTER a cycle ends, so the real gap
+# is cycle-duration + this. Left at 30 deliberately: the YouTube quota and
+# Apify spend were both sized against roughly 48 cycles a day, so shortening
+# it costs money rather than gaining freshness.
+Environment=SCHEDULER_CYCLE_MINUTES=30
+Environment=NODE_ENV=production
+
+ExecStart=/usr/bin/node node_modules/tsx/dist/cli.mjs --tsconfig tsconfig.scripts.json scripts/scheduler.ts
+
+# A publisher outage or a rate limit must cost this cycle, not every future
+# one. runCycle already swallows those; this covers the process dying outright.
+Restart=always
+RestartSec=60
+
+# The collector never needs to write outside its own directory.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/agri
+
+[Install]
+WantedBy=multi-user.target

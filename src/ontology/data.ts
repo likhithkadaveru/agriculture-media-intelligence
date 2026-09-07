@@ -5,7 +5,7 @@
  *
  * Districts live in ./districts.ts (all 33).
  */
-import type { GovernmentEntityEntry, OntologyTerm, TopicEntry } from "./types";
+import type { DepartmentEntry, GovernmentEntityEntry, OntologyTerm, TopicEntry } from "./types";
 
 export { DISTRICTS } from "./districts";
 
@@ -560,3 +560,171 @@ export const AGRICULTURE_MARKERS: OntologyTerm = {
     "యాసంగి",
   ],
 };
+
+/**
+ * The Agriculture & Cooperation Department, as the department itself
+ * describes it. Source: "Bilateral Meeting between Bihar & Telangana",
+ * 12 August 2026, slide 3. Ids are stable and kebab-cased; renaming one is a
+ * data migration, not an edit.
+ */
+export const DEPARTMENTS: DepartmentEntry[] = [
+  // ── I. Line departments ───────────────────────────────────────────────
+  {
+    id: "agriculture",
+    kind: "department",
+    en: "Agriculture",
+    te: "వ్యవసాయ శాఖ",
+    variants: [
+      "agriculture department", "వ్యవసాయ శాఖ", "వ్యవసాయశాఖ", "agri department",
+      "extension officer", "aeo", "mao", "rythu vedika", "రైతు వేదిక",
+      "వ్యవసాయ అధికారి", "agriculture officer", "sameti",
+    ],
+  },
+  {
+    id: "horticulture-sericulture",
+    kind: "department",
+    en: "Horticulture and Sericulture",
+    te: "ఉద్యానవన శాఖ",
+    variants: [
+      "horticulture", "ఉద్యాన", "ఉద్యానవన", "sericulture", "పట్టు పరిశ్రమ",
+      "oil palm", "ఆయిల్ పామ్", "mango", "మామిడి", "chilli", "మిర్చి",
+      "turmeric", "పసుపు", "nursery", "నర్సరీ", "tissue culture", "cold storage",
+    ],
+  },
+  {
+    id: "agricultural-marketing",
+    kind: "department",
+    en: "Agricultural Marketing",
+    te: "వ్యవసాయ మార్కెటింగ్ శాఖ",
+    variants: [
+      "agricultural marketing", "market committee", "మార్కెట్ కమిటీ", "amc",
+      "market yard", "మార్కెట్ యార్డ్", "e-nam", "enam", "commission agent",
+      "procurement centre", "కొనుగోలు కేంద్రం", "msp", "కనీస మద్దతు ధర",
+    ],
+  },
+  {
+    id: "cooperation",
+    kind: "department",
+    en: "Cooperation",
+    te: "సహకార శాఖ",
+    variants: [
+      "cooperation department", "సహకార శాఖ", "cooperative society", "సహకార సంఘం",
+      "pacs", "ప్యాక్స్", "dccb", "dcms", "primary agricultural cooperative",
+      "registrar of cooperative", "rcs",
+    ],
+  },
+
+  // ── II. Universities ──────────────────────────────────────────────────
+  {
+    id: "pjtau",
+    kind: "university",
+    en: "Prof Jayashankar Telangana Agricultural University (PJTAU)",
+    variants: [
+      "pjtau", "pjtsau", "jayashankar", "agricultural university",
+      "వ్యవసాయ విశ్వవిద్యాలయం", "agri university", "rajendranagar",
+    ],
+  },
+  {
+    id: "sklthu",
+    kind: "university",
+    en: "Sri Konda Laxman Telangana Horticulture University (SKLTHU)",
+    variants: [
+      "sklthu", "konda laxman", "horticulture university", "ఉద్యాన విశ్వవిద్యాలయం",
+    ],
+  },
+
+  // ── III. Bank ─────────────────────────────────────────────────────────
+  {
+    id: "tgcab",
+    kind: "bank",
+    en: "Telangana Cooperative Apex Bank (TGCAB)",
+    parent: "cooperation",
+    variants: ["tgcab", "apex bank", "cooperative apex bank", "సహకార బ్యాంకు"],
+  },
+
+  // ── IV. Agencies ──────────────────────────────────────────────────────
+  {
+    id: "tafwc",
+    kind: "agency",
+    en: "Telangana Agriculture Farmer Welfare Commission (TAFWC)",
+    parent: "agriculture",
+    variants: ["tafwc", "farmer welfare commission", "రైతు సంక్షేమ కమిషన్"],
+  },
+  {
+    id: "tg-markfed",
+    kind: "agency",
+    en: "Telangana State Marketing Federation (TG MARKFED)",
+    parent: "agricultural-marketing",
+    variants: ["markfed", "మార్క్‌ఫెడ్", "marketing federation"],
+  },
+  {
+    id: "tgsdcl",
+    kind: "agency",
+    en: "Telangana Seed Development Corporation (TGSDCL)",
+    parent: "agriculture",
+    variants: ["tgsdcl", "seed development corporation", "విత్తనాభివృద్ధి సంస్థ", "seeds corporation"],
+  },
+  {
+    id: "tgsoca",
+    kind: "agency",
+    en: "Telangana State Seed & Organic Certification Authority (TGSOCA)",
+    parent: "agriculture",
+    variants: ["tgsoca", "seed certification", "organic certification", "విత్తన ధ్రువీకరణ"],
+  },
+  {
+    id: "tgagros",
+    kind: "agency",
+    en: "Telangana State Agro Industries Development Corporation (TGAGROS)",
+    parent: "agriculture",
+    variants: ["tgagros", "agros", "agro industries", "agro rythu seva kendra"],
+  },
+  {
+    id: "tgoilfed",
+    kind: "agency",
+    en: "Telangana Co-Operative Oil Seeds Growers Federation (TGOILFED)",
+    parent: "cooperation",
+    variants: ["tgoilfed", "oilfed", "oil seeds growers", "vijaya hyderabad", "నూనె గింజలు"],
+  },
+  {
+    id: "tgwc",
+    kind: "agency",
+    en: "Telangana State Warehousing Corporation (TGWC)",
+    parent: "agricultural-marketing",
+    variants: ["tgwc", "warehousing corporation", "గోదాము", "godown", "warehouse"],
+  },
+  {
+    id: "aghub",
+    kind: "agency",
+    en: "AgHub Foundation",
+    parent: "agriculture",
+    variants: ["aghub", "ag hub", "agri startup", "agritech incubator"],
+  },
+  {
+    id: "haca",
+    kind: "agency",
+    en: "Hyderabad Agricultural Cooperative Association (HACA)",
+    parent: "cooperation",
+    variants: ["haca", "agricultural cooperative association", "necl", "ncol"],
+  },
+  {
+    id: "tghdcl",
+    kind: "agency",
+    en: "Telangana Horticulture Development Corporation (TGHDCL)",
+    parent: "horticulture-sericulture",
+    variants: ["tghdcl", "horticulture development corporation"],
+  },
+  {
+    id: "coop-rural-irrigation",
+    kind: "agency",
+    en: "Telangana State Cooperative Rural Irrigation Corporation",
+    parent: "cooperation",
+    variants: ["cooperative rural irrigation", "rural irrigation corporation"],
+  },
+  {
+    id: "coop-union",
+    kind: "agency",
+    en: "Telangana State Cooperative Union",
+    parent: "cooperation",
+    variants: ["cooperative union", "సహకార యూనియన్"],
+  },
+];

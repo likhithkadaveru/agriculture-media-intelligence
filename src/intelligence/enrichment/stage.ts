@@ -17,6 +17,19 @@ export interface EnrichmentStageResult {
   failed: number;
 }
 
+/**
+ * Flatten an error to a message that keeps its cause. Drizzle reports a
+ * failed statement as "Failed query: ..." and puts the actual Postgres error
+ * (connection dropped, constraint violated) on `cause`, so dropping it makes
+ * an unrelated-looking SQL dump the only evidence of what went wrong.
+ */
+function describeError(error: unknown): string {
+  if (!(error instanceof Error)) return String(error);
+  const cause = error.cause;
+  const causeText = cause instanceof Error ? cause.message : cause ? String(cause) : null;
+  return causeText ? `${error.message} [cause: ${causeText}]` : error.message;
+}
+
 export async function runEnrichmentStage(
   db: Db,
   enricher: Enricher,
@@ -56,6 +69,7 @@ export async function runEnrichmentStage(
         authorBio: author?.bio ?? null,
         isOfficialAccount: author?.isOfficial ?? false,
         dataOrigin: mention.dataOrigin,
+        transcript: mention.transcript,
         seedTranslation: seedTranslations.get(mention.id) ?? null,
       });
       const durationMs = Date.now() - started;
@@ -129,6 +143,8 @@ export async function runEnrichmentStage(
           locationConfidence: result.locationConfidence,
           sentiment: result.sentiment,
           stance: result.stance,
+          eventType: result.eventType,
+          department: result.department,
           claim: result.claim,
           claimConfidence: result.claimConfidence,
           englishTranslation: result.englishTranslation,
@@ -167,18 +183,33 @@ export async function runEnrichmentStage(
       succeeded++;
     } catch (error) {
       const durationMs = Date.now() - started;
-      await recordEvent(db, "ENRICHMENT_FAILED", {
-        mentionId: mention.id,
-        rawItemId: mention.rawItemId,
-        detail: {
-          provider: enricher.provider,
-          model: enricher.model,
-          promptVersion: enricher.promptVersion,
-          durationMs,
-          success: false,
-          error: error instanceof Error ? error.message : String(error),
-        },
-      });
+      /*
+       * Recording the failure can itself fail — a transient database error
+       * hits the enrich() call and the event insert alike. Letting that
+       * escape turned one unusable mention into a dead cycle: the remaining
+       * candidates went unprocessed and dedup, narratives and findings never
+       * ran at all. A stage that cannot log a problem must still make
+       * progress, so this never rethrows.
+       */
+      try {
+        await recordEvent(db, "ENRICHMENT_FAILED", {
+          mentionId: mention.id,
+          rawItemId: mention.rawItemId,
+          detail: {
+            provider: enricher.provider,
+            model: enricher.model,
+            promptVersion: enricher.promptVersion,
+            durationMs,
+            success: false,
+            error: describeError(error),
+          },
+        });
+      } catch (recordError) {
+        console.error(
+          `[enrichment] mention ${mention.id} failed, and recording that failed too: ` +
+            `${describeError(error)} / ${describeError(recordError)}`,
+        );
+      }
       failed++;
     }
   }

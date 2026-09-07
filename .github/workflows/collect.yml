@@ -1,0 +1,62 @@
+# Collection cycle, run on GitHub's runners instead of a laptop.
+#
+# Free only because this repository is public — private repos get 2,000
+# minutes a month and this needs roughly 21,000.
+#
+# TWO THINGS THAT WILL BITE, both documented GitHub behaviour:
+#
+# 1. Scheduled workflows are disabled automatically after 60 days with no
+#    repository activity. For an unattended collector that is a silent
+#    failure of exactly the kind this project keeps finding: nothing errors,
+#    collection just stops. The keepalive job below commits a heartbeat so
+#    the repository never goes quiet. Check it is still enabled if a week
+#    goes past with no new findings.
+#
+# 2. Scheduled runs are best-effort and are delayed under load, commonly by
+#    5-20 minutes and occasionally more. "Every 30 minutes" is therefore a
+#    floor, not a promise. Per-query cadence in collection_queries is what
+#    actually governs freshness, so a late run costs little.
+name: collect
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch: {}
+
+# A cycle takes 9-48 minutes and can outlast its interval. Overlapping runs
+# would contend for the same rows and double the Apify spend, so a run in
+# progress wins and the new one is dropped rather than queued.
+concurrency:
+  group: collect
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  cycle:
+    runs-on: ubuntu-latest
+    # Well past the longest observed cycle, but bounded: a hung run must not
+    # hold the concurrency group and block every later cycle.
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run one cycle
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          APIFY_API_TOKEN: ${{ secrets.APIFY_API_TOKEN }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
+          PUBLIC_SITE_URL: https://agriculture.likhithlabs.com
+        run: npm run scheduler -- --once

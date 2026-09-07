@@ -36,8 +36,78 @@ import {
   termMatches,
 } from "@/ontology";
 
+/**
+ * Andhra Pradesh markers, kept separate from the general out-of-state list
+ * because AP is the one state this system will reliably confuse itself with.
+ * It shares the language, the outlets and, until 2014, the state — so a
+ * Telugu agriculture channel covering a Guntur farmer looks, to every other
+ * signal here, exactly like one covering a Khammam farmer.
+ *
+ * DELIBERATELY ABSENT: "krishna" and bare "godavari". Both are AP districts
+ * and both are rivers running through Telangana, and Krishna/Godavari water
+ * management is core Telangana coverage — listing them would reject the very
+ * stories this system exists to catch. The two-word Godavari districts are
+ * safe and are listed; the bare river names are not.
+ */
+const ANDHRA_PRADESH_MARKERS = [
+  "andhra pradesh",
+  "andhra",
+  "ఆంధ్రప్రదేశ్",
+  "ఆంధ్ర",
+  // NOT "ఏపీ": it is a substring of "డీఏపీ" (DAP fertiliser), which appears
+  // in a large share of genuine Telangana items. The abbreviation is not
+  // worth breaking the most common term in the corpus to catch.
+  "rayalaseema",
+  "రాయలసీమ",
+  "amaravati",
+  "అమరావతి",
+  // Districts and principal cities.
+  "east godavari",
+  "west godavari",
+  "తూర్పు గోదావరి",
+  "పశ్చిమ గోదావరి",
+  "guntur",
+  "గుంటూరు",
+  "vijayawada",
+  "విజయవాడ",
+  "visakhapatnam",
+  "vizag",
+  "విశాఖపట్నం",
+  "vizianagaram",
+  "srikakulam",
+  "శ్రీకాకుళం",
+  "nellore",
+  "నెల్లూరు",
+  "kurnool",
+  "కర్నూలు",
+  "anantapur",
+  "అనంతపురం",
+  "kadapa",
+  "కడప",
+  "chittoor",
+  "చిత్తూరు",
+  "tirupati",
+  "తిరుపతి",
+  "prakasam",
+  "ongole",
+  "ఒంగోలు",
+  "kakinada",
+  "కాకినాడ",
+  "konaseema",
+  "eluru",
+  "ఏలూరు",
+  "nandyal",
+  "నంద్యాల",
+  "bapatla",
+  "palnadu",
+  "machilipatnam",
+  "rajahmundry",
+  "రాజమండ్రి",
+];
+
 /** Non-Telangana Indian states/regions that flag likely out-of-state stories. */
 const OUT_OF_STATE_MARKERS = [
+  ...ANDHRA_PRADESH_MARKERS,
   "punjab",
   "haryana",
   "karnataka",
@@ -149,9 +219,19 @@ export function assessRelevance(
   if (authorAnchored) telanganaRelevance += 0.4;
   if (regionalPrior) telanganaRelevance += 0.4;
   if (outOfState.length > 0 && !hasTelanganaMarker && matchedDistricts.length === 0) {
+    // Another state named and nothing anchoring this to Telangana: the
+    // regional prior alone must not carry it over the bar.
     telanganaRelevance = Math.max(0, telanganaRelevance - 0.4);
   } else if (outOfState.length > 0) {
-    telanganaRelevance = Math.max(0, telanganaRelevance - 0.3);
+    /*
+     * Named alongside explicit Telangana evidence, another state is weak
+     * counter-evidence rather than a veto — inter-state comparison is the
+     * normal register here. Krishna and Godavari water-sharing coverage
+     * always names Andhra Pradesh and is exactly the reporting this system
+     * exists to catch, so this penalty deliberately cannot push an item
+     * that has a state marker or a district below the acceptance bar.
+     */
+    telanganaRelevance = Math.max(0, telanganaRelevance - 0.15);
   }
   telanganaRelevance = Math.min(1, telanganaRelevance);
 

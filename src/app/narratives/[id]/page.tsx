@@ -59,19 +59,25 @@ export default async function NarrativePage({
         lastGeneratedAt={narrative.updatedAt}
       />
 
-      <main className="mx-auto max-w-[1200px] px-6 pb-24">
-        <nav className="flex gap-4 py-5 text-[13px]">
-          <Link href="/" className="text-ink-muted hover:text-ink">
+      <main className="mx-auto max-w-[1200px] px-4 pb-16 sm:px-6 sm:pb-24">
+        <nav className="flex gap-4 text-[13px] sm:py-5">
+          <Link
+            href="/"
+            className="inline-flex min-h-[44px] items-center text-ink-muted hover:text-ink sm:min-h-0"
+          >
             ← Overview
           </Link>
           {findingId && (
-            <Link href={`/findings/${findingId}`} className="text-ink-muted hover:text-ink">
+            <Link
+              href={`/findings/${findingId}`}
+              className="inline-flex min-h-[44px] items-center text-ink-muted hover:text-ink sm:min-h-0"
+            >
               View as finding →
             </Link>
           )}
         </nav>
 
-        <header className="border-b border-border pb-7">
+        <header className="border-b border-border pb-6 sm:pb-7">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <TrendBadge status={narrative.trendStatus} />
             <span className="kicker text-ink-faint">{narrative.key}</span>
@@ -81,7 +87,7 @@ export default async function NarrativePage({
               )}
             </span>
           </div>
-          <h1 className="headline-serif mt-3 max-w-[26ch] text-[36px] text-ink">
+          <h1 className="headline-serif mt-3 max-w-[26ch] text-[clamp(24px,6.4vw,36px)] text-ink">
             {narrative.title}
           </h1>
 
@@ -116,7 +122,7 @@ export default async function NarrativePage({
             {/* Claims */}
             {claims.length > 0 && (
               <div className="mb-9">
-                <h2 className="headline-serif text-[20px] text-ink">Claims inside this narrative</h2>
+                <h2 className="headline-serif text-[19px] text-ink sm:text-[20px]">Claims inside this narrative</h2>
                 <p className="mt-1 text-[12.5px] text-ink-muted">
                   Model-extracted assertions from individual items. Each links to the evidence that
                   contains it; none are verified statements of fact.
@@ -144,7 +150,7 @@ export default async function NarrativePage({
 
             {/* Evidence */}
             <div className="flex items-baseline justify-between">
-              <h2 className="headline-serif text-[20px] text-ink">Evidence</h2>
+              <h2 className="headline-serif text-[19px] text-ink sm:text-[20px]">Evidence</h2>
               <span className="text-[12.5px] text-ink-muted">
                 {narrative.mentionCount} canonical items
                 {duplicates > 0 && ` · ${duplicates} duplicates shown, not counted`}

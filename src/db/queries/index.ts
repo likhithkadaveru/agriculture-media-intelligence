@@ -833,6 +833,8 @@ export interface CoverageItem {
   language: string | null;
   district: string | null;
   stance: string | null;
+  /** protest | rally | meeting | ... — null for an ordinary report. */
+  eventType: string | null;
   topics: string[];
   narrativeId: string | null;
   narrativeTitle: string | null;
@@ -896,6 +898,7 @@ export async function getCoverageFeed(
       language: m.language,
       district: m.district,
       stance: m.stance,
+      eventType: m.eventType,
       topics: m.topics,
       narrativeId: nid,
       narrativeTitle: nid ? (narrativeById.get(nid)?.title ?? null) : null,

@@ -1,5 +1,5 @@
 import type { EvidenceItem } from "@/db/queries";
-import { AuthorTypeChip, PlatformBadge, StanceChip } from "@/components/badges";
+import { AuthorTypeChip, BroadcastChip, PlatformBadge, StanceChip } from "@/components/badges";
 import {
   LANGUAGE_LABELS,
   formatDateTime,
@@ -45,7 +45,7 @@ export function EvidenceCard({ item }: { item: EvidenceItem }) {
     mention.contentText !== null && mention.originalText.length > mention.contentText.length + 40;
 
   return (
-    <article className="rounded-lg border border-border bg-surface p-5">
+    <article className="rounded-lg border border-border bg-surface p-4 sm:p-5">
       {/* Source header */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <PlatformBadge platform={mention.platform} />
@@ -105,9 +105,16 @@ export function EvidenceCard({ item }: { item: EvidenceItem }) {
             </a>
           )}
           {mention.title && mention.platform !== "x" && (
-            <p className={`text-[15px] font-medium text-ink ${isTelugu ? "telugu-text" : ""}`}>
-              {mention.title}
-            </p>
+            <div>
+              {mention.broadcastStatus && (
+                <div className="mb-1.5">
+                  <BroadcastChip status={mention.broadcastStatus} />
+                </div>
+              )}
+              <p className={`text-[15px] font-medium text-ink ${isTelugu ? "telugu-text" : ""}`}>
+                {mention.title}
+              </p>
+            </div>
           )}
         </div>
         <div className="border-l-2 border-border-strong pl-4">
@@ -172,20 +179,27 @@ export function EvidenceCard({ item }: { item: EvidenceItem }) {
       )}
 
       {/* Source link */}
-      <div className="mt-4 flex flex-wrap items-center gap-4">
+      <div className="mt-2 flex flex-wrap items-center gap-4 sm:mt-4">
         {mention.url && (
           <a
             href={mention.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[12.5px] font-medium text-ink-muted hover:text-ink"
+            className="inline-flex min-h-[44px] items-center text-[12.5px] font-medium text-ink-muted hover:text-ink sm:min-h-0"
           >
             Open original source ↗
           </a>
         )}
         {mention.transcriptStatus === "unavailable" && (
           <span className="text-[11.5px] text-ink-faint">
-            Transcript not available — analysed from title, description and metadata
+            {mention.broadcastStatus === "live" || mention.broadcastStatus === "upcoming"
+              ? /*
+                 * Not a failure worth flagging as one: YouTube does not
+                 * publish captions until a stream ends, so nothing was lost
+                 * and nothing needs chasing.
+                 */
+                "Still broadcasting — captions are published once the stream ends"
+              : "Transcript not available — analysed from title, description and metadata"}
           </span>
         )}
       </div>

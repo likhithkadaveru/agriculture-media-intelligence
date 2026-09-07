@@ -34,6 +34,28 @@ export function extractJsonObject(text: string): unknown {
   return JSON.parse(candidate);
 }
 
+/**
+ * Pull the human-readable reason out of a CLI result envelope.
+ *
+ * The CLI reports API-level problems — quota, auth, rate limits — inside a
+ * JSON envelope on *stdout*, and may still exit non-zero with an empty
+ * stderr. Reading only stderr therefore produced `claude-cli exited 1: `,
+ * which says nothing about a spend limit or an expired session and makes a
+ * whole stalled enrichment stage look like an unexplained crash.
+ */
+export function envelopeError(stdout: string): string | null {
+  let envelope: { result?: unknown; api_error_status?: unknown };
+  try {
+    envelope = JSON.parse(stdout.trim());
+  } catch {
+    return null;
+  }
+  if (typeof envelope.result !== "string" || envelope.result.length === 0) return null;
+  const status =
+    typeof envelope.api_error_status === "number" ? ` (HTTP ${envelope.api_error_status})` : "";
+  return `${envelope.result}${status}`;
+}
+
 export class ClaudeCliEnricher implements Enricher {
   provider = "claude-cli";
   promptVersion = ENRICHMENT_PROMPT_VERSION;
@@ -65,8 +87,11 @@ export class ClaudeCliEnricher implements Enricher {
       });
       child.on("close", (code) => {
         clearTimeout(timer);
-        if (code === 0) resolve(out);
-        else reject(new Error(`claude-cli exited ${code}: ${err.slice(0, 300)}`));
+        if (code === 0) return resolve(out);
+        const reason = envelopeError(out) ?? err.trim() ?? "";
+        reject(
+          new Error(`claude-cli exited ${code}: ${reason.slice(0, 300) || "no diagnostic output"}`),
+        );
       });
 
       child.stdin.write(prompt);
@@ -75,7 +100,9 @@ export class ClaudeCliEnricher implements Enricher {
 
     const envelope = JSON.parse(stdout) as { is_error?: boolean; result?: string };
     if (envelope.is_error || typeof envelope.result !== "string") {
-      throw new Error("claude-cli returned an error envelope");
+      throw new Error(
+        `claude-cli returned an error envelope: ${envelopeError(stdout) ?? "no reason given"}`,
+      );
     }
     return envelope.result;
   }

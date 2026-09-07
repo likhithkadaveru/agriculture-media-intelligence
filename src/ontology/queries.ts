@@ -11,12 +11,45 @@
  */
 import { DISTRICTS } from "./districts";
 
+/**
+ * How often a feed-based query becomes due again, in minutes.
+ *
+ * RSS and the Apify actors are polled on this: they are either free or billed
+ * per run rather than against a shared allowance, so 30 minutes costs only
+ * what the operator has already accepted.
+ */
+export const SCAN_MINUTES = 30;
+
+/*
+ * YouTube Data API cadences — set by arithmetic, not preference.
+ *
+ * The free allowance is 10,000 units/day and search.list costs 100, so the
+ * whole day is 100 searches. Everything below has to fit in that or
+ * collection simply stops partway through each day:
+ *
+ *   youtube-live   1 search/cycle x 48 cycles       = 48/day   4,800 units
+ *   tier A         10 queries every 12h             = 20/day   2,000 units
+ *   tier B         17 queries every 48h             = ~9/day     900 units
+ *   tier C        264 queries every 14d             = ~19/day  1,900 units
+ *                                                     ~96/day  ~9,600 units
+ *
+ * videos.list is 1 unit per call and rounds to nothing against that.
+ *
+ * Live watching is deliberately given half the budget: a stream is only
+ * newsworthy while it is running, so a stale live check is worthless, whereas
+ * a district query answered twelve hours late still gives the same answer.
+ * Raising any of these needs a quota increase from Google first.
+ */
+const TIER_A_MINUTES = 12 * 60;
+const TIER_B_MINUTES = 48 * 60;
+const TIER_C_MINUTES = 14 * 24 * 60;
+
 export interface GeneratedQuery {
   query: string;
   language: "te" | "en";
   tier: "a" | "b" | "c";
   priority: number;
-  frequencyHours: number;
+  frequencyMinutes: number;
   expectedNoise: "low" | "medium" | "high";
 }
 
@@ -70,7 +103,7 @@ export function generateCollectionQueries(): GeneratedQuery[] {
       language,
       tier: "a",
       priority: 100,
-      frequencyHours: 6,
+      frequencyMinutes: TIER_A_MINUTES,
       expectedNoise: "medium",
     });
   }
@@ -81,7 +114,7 @@ export function generateCollectionQueries(): GeneratedQuery[] {
       language,
       tier: "b",
       priority: 60,
-      frequencyHours: 24,
+      frequencyMinutes: TIER_B_MINUTES,
       expectedNoise: "medium",
     });
   }
@@ -93,7 +126,7 @@ export function generateCollectionQueries(): GeneratedQuery[] {
         language: "en",
         tier: "c",
         priority: 20,
-        frequencyHours: 24 * 7,
+        frequencyMinutes: TIER_C_MINUTES,
         expectedNoise: "high",
       });
       if (district.te) {
@@ -102,7 +135,7 @@ export function generateCollectionQueries(): GeneratedQuery[] {
           language: "te",
           tier: "c",
           priority: 20,
-          frequencyHours: 24 * 7,
+          frequencyMinutes: TIER_C_MINUTES,
           expectedNoise: "high",
         });
       }

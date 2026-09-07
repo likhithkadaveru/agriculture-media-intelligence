@@ -202,6 +202,7 @@ export async function runCollection(
       engagement: normalized.engagement,
       thumbnailUrl: normalized.thumbnailUrl ?? null,
       transcriptStatus: normalized.transcriptStatus ?? null,
+      broadcastStatus: normalized.broadcastStatus ?? null,
       isOfficialVoice: normalized.author?.isOfficialAccount ?? false,
       status: "normalized",
       dataOrigin: normalized.dataOrigin,

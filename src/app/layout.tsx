@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Fraunces, Inter, Noto_Sans_Telugu, Noto_Serif_Telugu } from "next/font/google";
 import "./globals.css";
 
@@ -26,6 +26,14 @@ export const metadata: Metadata = {
   title: "Telangana Agriculture Intelligence",
   description:
     "Public-intelligence command centre for the Telangana agriculture ecosystem",
+  // Required for Add to Home Screen, which on iOS is the only route to
+  // notification permission for a website.
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "Agri Intel", statusBarStyle: "default" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#1f3d2b",
 };
 
 export default function RootLayout({

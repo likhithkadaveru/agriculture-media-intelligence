@@ -11,6 +11,7 @@
  * homework: the "manual assessment" column is left for a person to fill,
  * except where the decision is mechanically checkable.
  */
+import "./env";
 import { writeFileSync } from "node:fs";
 import path from "node:path";
 import { and, eq } from "drizzle-orm";

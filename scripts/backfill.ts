@@ -16,15 +16,25 @@
  * whatever happens to be in it — for a busy publisher that may be two days.
  * The only honest fix for real history is to keep collecting from now on.
  */
+import "./env";
 import { createDb } from "@/db/client";
 import { runCollection } from "@/ingestion/router";
 import { ensureLocations, jobs } from "@/ingestion/jobs";
-import { seedCollectionQueries, getDueQueries } from "@/ingestion/router/scheduler";
+import {
+  seedCollectionQueries,
+  getBackfillQueries,
+  recordQueryRun,
+} from "@/ingestion/router/scheduler";
 import { INSTAGRAM_HASHTAGS } from "@/ingestion/connectors/apify/sources";
 import { generateCollectionQueries } from "@/ontology/queries";
 
-/** Verified from each actor's published pricing. */
-const PRICE_PER_X_RESULT = 0.0004;
+/**
+ * Verified from each actor's published pricing. The X figure follows
+ * ACTIVE_X_SOURCE: kaitoeasyapi (the default) bills $0.00025 per result,
+ * apidojo $0.0004. An estimate that gates a paid run must price the actor
+ * that will actually be called.
+ */
+const PRICE_PER_X_RESULT = process.env.APIFY_X_ACTOR === "apidojo" ? 0.0004 : 0.00025;
 const PRICE_PER_IG_RESULT = 0.0026;
 
 function arg(name: string): string | null {
@@ -82,10 +92,14 @@ async function main() {
   // Free sources first: they cost nothing, so a later failure on a paid
   // source never means we paid for a run that produced nothing usable.
   for (const connector of ["youtube-rss", "news-rss"]) {
-    const due = await getDueQueries(db, connector, 30);
+    const due = await getBackfillQueries(db, connector, 30);
     for (const q of due) {
       try {
         const r = await runCollection(db, connector, q.query);
+        // A backfill poll is a poll: it consumes the same publisher quota and
+        // advances the same cadence, so it must be recorded like a scheduled
+        // one. Skipping this left the query's yield stats permanently blank.
+        await recordQueryRun(db, q.id, r.collected, q.frequencyMinutes);
         log(`${connector} · ${q.label ?? q.query}: ${r.collected} items, ${r.newMentions} new`);
       } catch (error) {
         log(`${connector} · ${q.label ?? q.query} FAILED: ${error instanceof Error ? error.message : error}`);
@@ -98,10 +112,11 @@ async function main() {
       ["apify-x-search", perTerm],
       ["apify-instagram-hashtag", perTag],
     ] as const) {
-      const due = await getDueQueries(db, connector, 20);
+      const due = await getBackfillQueries(db, connector, 20);
       for (const q of due) {
         try {
           const r = await runCollection(db, connector, q.query, { limit, since });
+          await recordQueryRun(db, q.id, r.collected, q.frequencyMinutes);
           log(`${connector} · ${q.query}: ${r.collected} items, ${r.newMentions} new`);
         } catch (error) {
           log(`${connector} · ${q.query} FAILED: ${error instanceof Error ? error.message : error}`);

@@ -1,5 +1,9 @@
+"use client";
+
+import { useState } from "react";
 import type { CoverageItem } from "@/db/queries";
 import { LANGUAGE_LABELS, PLATFORM_LABELS, formatDateTime } from "@/lib/format";
+import { EventChip } from "@/components/badges";
 
 /**
  * The clippings digest.
@@ -8,7 +12,17 @@ import { LANGUAGE_LABELS, PLATFORM_LABELS, formatDateTime } from "@/lib/format";
  * than the picture strip. The reading order is what an officer actually asks:
  * who published it, what it says, where, and how it reads — in that order,
  * down a fixed left edge.
+ *
+ * The full digest is thirty items, which is a column on a desktop screen and
+ * most of the page on a phone. On small screens the tail is folded away
+ * behind a count rather than dropped: the reader still knows exactly how much
+ * is there, and one tap is a smaller cost than a thousand pixels of scroll.
+ * Desktop is unaffected — the fold is CSS, so the wide layout always shows
+ * every item whatever the toggle says.
  */
+
+/** Items kept above the fold on small screens. */
+const MOBILE_VISIBLE = 10;
 
 const STANCE: Record<string, { label: string; className: string; rule: string }> = {
   critical: {
@@ -25,29 +39,81 @@ const STANCE: Record<string, { label: string; className: string; rule: string }>
   neutral: { label: "Factual", className: "text-ink-muted", rule: "bg-[var(--rule-strong)]" },
 };
 
-export function CoverageFeed({ items }: { items: CoverageItem[] }) {
-  if (items.length === 0) return null;
+export function CoverageFeed({
+  items,
+  district,
+  onClearDistrict,
+}: {
+  items: CoverageItem[];
+  /** District the list is currently narrowed to, if any. */
+  district?: string | null;
+  onClearDistrict?: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  /*
+   * An empty list used to mean "render nothing", which was safe when the feed
+   * was never filtered. Now that a lens or a district can legitimately match
+   * nothing, silence would read as a broken page — so say so instead.
+   */
+  if (items.length === 0) {
+    return (
+      <section>
+        <h2 className="headline-serif text-[19px] text-ink sm:text-[20px]">Coverage</h2>
+        <p className="mt-3 text-[13px] text-ink-muted">
+          Nothing here{district ? ` for ${district}` : ""} in this view.
+          {onClearDistrict && district && (
+            <button
+              type="button"
+              onClick={onClearDistrict}
+              className="ml-2 font-medium text-seal underline underline-offset-2"
+            >
+              Show the whole state
+            </button>
+          )}
+        </p>
+      </section>
+    );
+  }
+
+  const foldable = items.length > MOBILE_VISIBLE;
 
   return (
     <section>
       <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <h2 className="headline-serif text-[20px] text-ink">Coverage</h2>
+        <h2 className="headline-serif text-[19px] text-ink sm:text-[20px]">Coverage</h2>
         <p className="text-[12.5px] text-ink-muted">
-          {items.length} most recent items across press, broadcast and public posts
+          {district ? (
+            <>
+              <span className="font-medium text-ink-secondary">{district}</span> ·{" "}
+              {items.length} item{items.length === 1 ? "" : "s"}
+              {onClearDistrict && (
+                <button
+                  type="button"
+                  onClick={onClearDistrict}
+                  className="ml-2 font-medium text-seal underline underline-offset-2"
+                >
+                  Clear
+                </button>
+              )}
+            </>
+          ) : (
+            `${items.length} most recent items across press, broadcast and public posts`
+          )}
         </p>
       </div>
 
       <ul className="mt-4 divide-y divide-[var(--rule)] border-y border-[var(--rule)]">
-        {items.map((item) => {
+        {items.map((item, i) => {
           const tone = STANCE[item.stance ?? "neutral"] ?? STANCE.neutral;
           const isTelugu = item.language === "te" || item.language === "mixed";
+          const folded = foldable && !expanded && i >= MOBILE_VISIBLE;
           return (
-            <li key={item.id}>
+            <li key={item.id} className={folded ? "hidden sm:list-item" : undefined}>
               <a
                 href={item.url ?? undefined}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group flex gap-4 py-3.5 transition-colors hover:bg-surface"
+                className="group flex gap-3 py-3 transition-colors hover:bg-surface sm:gap-4 sm:py-3.5"
               >
                 {/* Stance reads as position on a fixed edge before it reads as colour. */}
                 <span aria-hidden className={`mt-1 w-[3px] shrink-0 rounded-full ${tone.rule}`} />
@@ -57,7 +123,7 @@ export function CoverageFeed({ items }: { items: CoverageItem[] }) {
                     <span className="text-[12px] font-semibold text-ink-secondary">
                       {item.outlet ?? "Unknown source"}
                     </span>
-                    <span className="kicker text-ink-faint">
+                    <span className="hidden kicker text-ink-faint sm:inline">
                       {PLATFORM_LABELS[item.platform] ?? item.platform}
                     </span>
                     <span className="text-[11.5px] text-ink-faint">
@@ -69,7 +135,7 @@ export function CoverageFeed({ items }: { items: CoverageItem[] }) {
                   </div>
 
                   <p
-                    className={`mt-1 text-[14.5px] leading-snug text-ink group-hover:underline decoration-[var(--rule-strong)] underline-offset-[3px] ${
+                    className={`mt-1 text-[14px] leading-snug text-ink group-hover:underline decoration-[var(--rule-strong)] underline-offset-[3px] sm:text-[14.5px] ${
                       isTelugu ? "telugu-text" : ""
                     }`}
                   >
@@ -86,6 +152,7 @@ export function CoverageFeed({ items }: { items: CoverageItem[] }) {
                   )}
 
                   <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-ink-faint">
+                    <EventChip event={item.eventType} />
                     {item.district ? (
                       <span className="font-medium text-ink-muted">{item.district}</span>
                     ) : (
@@ -93,10 +160,14 @@ export function CoverageFeed({ items }: { items: CoverageItem[] }) {
                     )}
                     {item.language && <span>{LANGUAGE_LABELS[item.language]}</span>}
                     {item.topics.length > 0 && (
-                      <span>{item.topics.slice(0, 2).map((t) => t.replace(/-/g, " ")).join(" · ")}</span>
+                      <span className="hidden sm:inline">
+                        {item.topics.slice(0, 2).map((t) => t.replace(/-/g, " ")).join(" · ")}
+                      </span>
                     )}
                     {item.narrativeTitle && (
-                      <span className="truncate text-ink-muted">↳ {item.narrativeTitle}</span>
+                      <span className="hidden truncate text-ink-muted sm:inline">
+                        ↳ {item.narrativeTitle}
+                      </span>
                     )}
                   </div>
                 </div>
@@ -105,6 +176,16 @@ export function CoverageFeed({ items }: { items: CoverageItem[] }) {
           );
         })}
       </ul>
+
+      {foldable && !expanded && (
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className="mt-3 min-h-[44px] w-full rounded-md border border-border-strong bg-surface text-[13.5px] font-medium text-ink-secondary transition-colors hover:text-ink sm:hidden"
+        >
+          Show all {items.length} items
+        </button>
+      )}
     </section>
   );
 }
