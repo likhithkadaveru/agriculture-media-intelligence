@@ -123,6 +123,97 @@ const OUT_OF_STATE_MARKERS = [
   "west bengal",
 ];
 
+/*
+ * Property listings dressed as agriculture.
+ *
+ * Real-estate channels post "1 Acre Agriculture Land For Sale in Telangana"
+ * and score 1.00 on agriculture relevance, because the content genuinely is
+ * about farmland. It is commerce, not public discourse, and an officer
+ * scanning for what is being said about the department gains nothing from a
+ * plot advertisement.
+ *
+ * Precision matters far more than recall here. "Sale" alone is a trap: live
+ * data has "నకిలీఎరువుల విక్రయదారుల గుట్టురట్టు" (fake fertiliser sellers
+ * exposed) and "అధిక ధరలకు డీఏపీ విక్రయిస్తే కేసులు" (cases if DAP is sold
+ * above price) — enforcement stories that are exactly what this system is
+ * for. Both would be destroyed by a naive sale filter, so a listing must be
+ * evidenced by an OFFER, not by the word sale.
+ */
+
+/**
+ * Phrases only an advertisement uses. Multi-word on purpose — single tokens
+ * turned out to be unsafe against real place names and ordinary reporting.
+ */
+const LISTING_PHRASES = [
+  "land for sale",
+  "lands for sale",
+  "plot for sale",
+  "plots for sale",
+  "site for sale",
+  "acre for sale",
+  "acres for sale",
+  "for sale in telangana",
+  "open plot",
+  // Whole-word matching means the plural needs listing separately: \bopen
+  // plot\b does not match "open plots", which is the commoner phrasing.
+  "open plots",
+  "sq yards",
+  "sq.yards",
+  "square yards",
+  "sqyards",
+  "అమ్మకానికి", // "for sale"
+  "విక్రయానికి", // "for sale"
+  "వెంచర్", // "venture" — a plotted layout
+  "గజాల", // square yards
+];
+
+/**
+ * Suggestive, but not on their own.
+ *
+ * "gunta" is a land measure that reads like a listing until you meet Regunta
+ * village, where a Nano Urea field demonstration was held — the exact
+ * coverage this system exists for, nearly deleted by a substring match.
+ * "real estate" appears throughout political speech about land policy. Both
+ * now need an offer beside them.
+ */
+const LISTING_HINTS = ["gunta", "guntas", "real estate", "రియల్ ఎస్టేట్"];
+
+/** Land nouns, which alone are ordinary agricultural vocabulary. */
+const LAND_NOUNS = ["land", "plot", "acre", "acres", "భూమి", "స్థలం", "ఎకరా", "ఎకరాల"];
+/** Offer verbs, which alone appear throughout legitimate enforcement news. */
+const SALE_OFFERS = ["for sale", "sale in", "selling price", "అమ్మకం", "అమ్ముతు", "విక్రయం"];
+
+/**
+ * Whole-word containment for Latin terms, plain containment for Telugu.
+ *
+ * Telugu script carries no \b word boundary in JavaScript regex, and its
+ * terms here are long enough that a spurious substring is not a realistic
+ * risk. Latin ones very much are: "gunta" inside "Regunta".
+ */
+function containsTerm(hay: string, term: string): boolean {
+  if (!/^[\x20-\x7e]+$/.test(term)) return hay.includes(term);
+  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`\\b${escaped}\\b`).test(hay);
+}
+
+/**
+ * True when the text is advertising land rather than discussing it.
+ *
+ * Either a phrase only a listing uses, or a suggestive hint or land noun
+ * standing beside an actual offer — never an offer word on its own, and
+ * never a hint on its own.
+ */
+export function isPropertyListing(text: string, title?: string | null): boolean {
+  const hay = `${title ?? ""}\n${text}`.toLowerCase();
+  if (LISTING_PHRASES.some((p) => containsTerm(hay, p))) return true;
+  const offered = SALE_OFFERS.some((v) => containsTerm(hay, v));
+  if (!offered) return false;
+  return (
+    LAND_NOUNS.some((n) => containsTerm(hay, n)) ||
+    LISTING_HINTS.some((n) => containsTerm(hay, n))
+  );
+}
+
 export interface RelevanceVerdict {
   accepted: boolean;
   telanganaRelevance: number;
@@ -237,9 +328,20 @@ export function assessRelevance(
 
   /* ---------- decision ---------- */
 
-  const accepted = agricultureRelevance >= 0.5 && telanganaRelevance >= 0.4;
+  /*
+   * A listing is rejected outright rather than scored down. Scoring cannot
+   * work here: these items are genuinely about agricultural land and earn a
+   * high agriculture score honestly, so no threshold separates them from real
+   * coverage. What disqualifies them is their purpose, not their subject.
+   */
+  const listing = isPropertyListing(text, context?.title);
+  const accepted =
+    !listing && agricultureRelevance >= 0.5 && telanganaRelevance >= 0.4;
 
   const reasonParts: string[] = [];
+  if (listing) {
+    reasonParts.push("Property listing: land or plots being advertised, not discussed");
+  }
   reasonParts.push(
     agricultureRelevance >= 0.5
       ? `Agriculture evidence: ${
