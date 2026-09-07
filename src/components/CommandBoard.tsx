@@ -192,7 +192,17 @@ export function CommandBoard({ data }: { data: BoardData }) {
       </div>
 
       {items.length === 0 ? (
-        <p className="mt-10 text-[14px] text-ink-muted">Nothing in this view right now.</p>
+        <p className="mt-10 text-[14px] text-ink-muted">
+          {/*
+            Factual coverage never produces a finding — a finding is by
+            definition a concern or something going well. Saying "nothing
+            right now" here reads as a data problem or a broken page, every
+            single time, while the feed below plainly has items.
+          */}
+          {lens === "factual"
+            ? "Factual coverage raises no findings — it is reported without praise or blame. The items themselves are below."
+            : "Nothing in this view right now."}
+        </p>
       ) : (
         <section className="mt-6 sm:mt-8">
           {/* The first item carries the weight. A briefing that gives every

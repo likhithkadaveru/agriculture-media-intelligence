@@ -11,7 +11,7 @@
  * every cycle, so keying on the finding id would re-alert on the same story
  * indefinitely. An alert that repeats is an alert that gets muted.
  */
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import {
   intelligenceFindings,
@@ -38,7 +38,17 @@ const MAX_PER_CYCLE = 3;
  * condemns it, defends it, or states it flatly — and neutral reporting of a
  * protest was, until now, exactly the thing this system stayed silent about.
  */
-const URGENT_EVENTS = ["protest", "rally", "disaster"] as const;
+const URGENT_EVENTS = ["disaster", "protest", "rally"] as const;
+
+/**
+ * How far back an event still counts as happening.
+ *
+ * Without a bound, any narrative that ever contained a protest is urgent
+ * forever, and its first alert would announce "PROTEST" about something three
+ * weeks old. Two days covers a story reported late without claiming that last
+ * month's dharna is under way now.
+ */
+const URGENT_WINDOW_HOURS = 48;
 
 /** Share of critical stance above which a narrative reads as unfavourable. */
 const CRITICAL_SHARE = 0.25;
@@ -97,6 +107,7 @@ export async function runAlertStage(
    * rather than per narrative inside the loop, which would be one query per
    * row for a value most rows do not have.
    */
+  const since = new Date(Date.now() - URGENT_WINDOW_HOURS * 3600 * 1000);
   const urgentRows = await db
     .selectDistinct({
       narrativeId: narrativeMentions.narrativeId,
@@ -108,11 +119,26 @@ export async function runAlertStage(
       and(
         inArray(mentions.eventType, [...URGENT_EVENTS]),
         eq(mentions.relevanceStatus, "accepted"),
+        gte(mentions.publishedAt, since),
       ),
     );
-  const urgentEvents = new Map(
-    urgentRows.filter((r) => r.eventType).map((r) => [r.narrativeId, r.eventType!]),
-  );
+  /*
+   * A narrative can carry more than one urgent event — flood damage and the
+   * protest it provokes — and the query returns them in no defined order, so
+   * picking the last would label the same story differently between runs.
+   * URGENT_EVENTS is ordered by how much it warrants interrupting someone,
+   * and the strongest wins.
+   */
+  const urgentEvents = new Map<string, string>();
+  for (const row of urgentRows) {
+    if (!row.eventType) continue;
+    const held = urgentEvents.get(row.narrativeId);
+    const better =
+      held === undefined ||
+      URGENT_EVENTS.indexOf(row.eventType as (typeof URGENT_EVENTS)[number]) <
+        URGENT_EVENTS.indexOf(held as (typeof URGENT_EVENTS)[number]);
+    if (better) urgentEvents.set(row.narrativeId, row.eventType);
+  }
 
   const already = new Set(
     (await db.select({ narrativeId: sentAlerts.narrativeId }).from(sentAlerts)).map(
@@ -120,7 +146,21 @@ export async function runAlertStage(
     ),
   );
 
-  for (const { finding, narrative } of rows) {
+  /*
+   * Urgent narratives first, then by rank. Iterating in rank order alone let
+   * three routine unfavourable stories consume the per-cycle cap and push a
+   * live protest into the next run — at least 30 minutes away, and in
+   * practice longer once cycle overrun and cron delay are counted. An alert
+   * that arrives an hour after the road was blocked is a report, not an
+   * alert.
+   */
+  const ordered = [...rows].sort((a, b) => {
+    const aUrgent = urgentEvents.has(a.narrative.id) ? 0 : 1;
+    const bUrgent = urgentEvents.has(b.narrative.id) ? 0 : 1;
+    return aUrgent - bUrgent;
+  });
+
+  for (const { finding, narrative } of ordered) {
     const stance = narrative.stanceSummary;
     const total = Object.values(stance).reduce((a, b) => a + b, 0);
     const criticalShare = total === 0 ? 0 : (stance["critical"] ?? 0) / total;
@@ -147,13 +187,38 @@ export async function runAlertStage(
      * put the word where the officer actually reads it, on the first line.
      */
     const prefix = urgent ? `🔴 ${urgent.toUpperCase()}${where} — ` : "";
+    /*
+     * Truncate the headline against what the prefix leaves, not the whole
+     * string. Slicing the joined result meant a long prefix — "🔴 DISASTER ·
+     * Bhadradri Kothagudem, Khammam — " is 46 characters — ate the headline,
+     * so the officer was told the severity and the district but not what had
+     * happened. The district is already repeated in the body.
+     */
+    const headline = finding.headline.slice(0, Math.max(24, 80 - prefix.length));
     const delivery = await sendToAll(db, {
-      title: `${prefix}${finding.headline}`.slice(0, 80),
+      title: `${prefix}${headline}`,
       body: `${narrative.mentionCount} items, ${narrative.uniqueAuthorCount} independent voices${where}`,
       url: `${base}/findings/${finding.id}`,
       // One notification per narrative on the device, replaced not stacked.
       tag: `narrative-${narrative.id}`,
     }, { log });
+
+    /*
+     * Only a delivery that actually reached a device counts as alerted.
+     *
+     * markAlerted used to run unconditionally, so a cycle that hit a network
+     * blip — every push failing — still wrote the narrative to sent_alerts,
+     * and every later cycle skipped it as already notified. The story was
+     * silenced permanently and nothing anywhere said so. Leaving it unmarked
+     * costs a retry next cycle; marking it wrongly costs the alert.
+     */
+    if (delivery.sent === 0) {
+      log(
+        `alert NOT recorded: "${finding.headline.slice(0, 40)}" reached no device ` +
+          `(${delivery.failed} failed, ${delivery.removed} expired) — will retry next cycle`,
+      );
+      continue;
+    }
 
     await markAlerted(db, finding.id, narrative.id, delivery.sent);
     result.alerted++;
