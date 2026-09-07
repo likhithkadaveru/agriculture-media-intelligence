@@ -5,19 +5,31 @@
 #   ./scripts/install-scheduler.sh            install and start
 #   ./scripts/install-scheduler.sh --uninstall
 #
-# WHY THE LAUNCHER IS WRITTEN OUTSIDE THIS REPO
+# KEEP THIS PROJECT OUT OF ~/Desktop AND ~/Documents
 #
-# The project sits under ~/Desktop, which macOS protects with TCC. A launchd
-# job may not read files there using Apple's platform binaries: /bin/bash and
-# /usr/bin/head both get "Operation not permitted". Measured, not assumed —
-# under launchd, `cd` into the project succeeds, `head scripts/<file>` is
-# denied, and node reading package.json succeeds.
+# It used to live under ~/Desktop, and two separate things went wrong there.
+# Both are fixed by the location, not by code, so they are recorded here
+# rather than worked around.
 #
-# So this script generates the launcher into ~/Library/Application Support,
-# where bash may read it, and everything touching the repo is done by the nvm
-# node binary, which TCC permits. Run this from Terminal, where no such
-# restriction applies. Moving the project out of ~/Desktop would remove the
-# whole problem, if that is ever convenient.
+# 1. iCloud eviction — the real one, and it cost days of collection. With
+#    Desktop & Documents sync on, macOS evicts file contents to iCloud to
+#    reclaim disk, leaving a full-size stub flagged `dataless` (visible via
+#    `ls -lO`). A foreground process transparently downloads it again; a
+#    launchd job cannot, and the read fails with EAGAIN, surfacing as
+#    "Unknown system error -11" mid-import. So cycles died at random, in
+#    whichever dependency happened to be evicted that hour, and a `mv` out of
+#    the folder blocks indefinitely on the first file that will not come back
+#    down. Delete node_modules before moving; npm ci rebuilds it.
+#
+# 2. TCC — the theory this comment used to give, and only half right. Under
+#    launchd, `cd` into a Desktop project succeeds and `head scripts/<file>`
+#    is denied, so Apple's platform binaries genuinely are restricted there.
+#    That is why the launcher is still generated into ~/Library/Application
+#    Support and everything touching the repo goes through the nvm node
+#    binary. Harmless to keep, and it costs nothing outside ~/Desktop.
+#
+# PROJECT_DIR below is baked into the generated launcher, so re-run this
+# script after moving the project or launchd keeps using the old path.
 set -euo pipefail
 
 LABEL="com.likhithlabs.agri-scheduler"
@@ -88,11 +100,16 @@ cat > "$PLIST" <<PLIST_EOF
     <string>/bin/bash</string>
     <string>$LAUNCHER</string>
   </array>
-  <!-- One cycle an hour. Per-query cadence lives in collection_queries and is
-       enforced by the router, so this only decides how often the system asks:
-       news every 4h, YouTube every 6h, the paid Apify sources once a day. -->
+  <!-- One cycle every 30 minutes, matching SCAN_MINUTES in
+       src/ontology/queries.ts. Both levers must agree: per-query cadence lives
+       in collection_queries and is enforced by the router, so a 30-minute
+       cadence with an hourly tick still only scans hourly, and an hourly
+       cadence with a 30-minute tick just adds an idle cycle. A cycle takes
+       9-23 minutes, so this leaves real but not generous headroom; launchd
+       will not start a second copy while one is running, and an overrun
+       simply skips a tick. -->
   <key>StartInterval</key>
-  <integer>3600</integer>
+  <integer>1800</integer>
   <!-- Collect at login rather than waiting out the first hour. A day without
        collection is permanently missing. -->
   <key>RunAtLoad</key>

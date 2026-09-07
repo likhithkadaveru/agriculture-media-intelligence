@@ -99,7 +99,7 @@ async function main() {
         // A backfill poll is a poll: it consumes the same publisher quota and
         // advances the same cadence, so it must be recorded like a scheduled
         // one. Skipping this left the query's yield stats permanently blank.
-        await recordQueryRun(db, q.id, r.collected, q.frequencyHours);
+        await recordQueryRun(db, q.id, r.collected, q.frequencyMinutes);
         log(`${connector} · ${q.label ?? q.query}: ${r.collected} items, ${r.newMentions} new`);
       } catch (error) {
         log(`${connector} · ${q.label ?? q.query} FAILED: ${error instanceof Error ? error.message : error}`);
@@ -116,7 +116,7 @@ async function main() {
       for (const q of due) {
         try {
           const r = await runCollection(db, connector, q.query, { limit, since });
-          await recordQueryRun(db, q.id, r.collected, q.frequencyHours);
+          await recordQueryRun(db, q.id, r.collected, q.frequencyMinutes);
           log(`${connector} · ${q.query}: ${r.collected} items, ${r.newMentions} new`);
         } catch (error) {
           log(`${connector} · ${q.query} FAILED: ${error instanceof Error ? error.message : error}`);

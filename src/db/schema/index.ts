@@ -221,6 +221,15 @@ export const mentions = pgTable(
 
     sentiment: sentimentEnum("sentiment"),
     stance: stanceEnum("stance"),
+    /*
+     * What is physically happening — protest, rally, meeting, inspection,
+     * launch, arrest, disaster — independent of how it is reported. Kept
+     * apart from stance because a rally is worth an officer's attention
+     * whether the coverage praises it, condemns it or just states it.
+     */
+    eventType: text("event_type"),
+    /** Arm of the Agriculture & Cooperation Department (see DEPARTMENTS). */
+    department: text("department"),
     claim: text("claim"),
     claimConfidence: doublePrecision("claim_confidence"),
 
@@ -234,6 +243,16 @@ export const mentions = pgTable(
     thumbnailUrl: text("thumbnail_url"),
     /** unavailable | available | not_applicable — never fabricated. */
     transcriptStatus: text("transcript_status"),
+    /*
+     * live | upcoming | ended | null (an ordinary upload).
+     *
+     * Worth its own column rather than being derived on read: a broadcast is
+     * "live" only while it is airing, so the value is true at collection time
+     * and unrecoverable afterwards. It also explains an otherwise puzzling
+     * mention — a live telecast has no captions yet, so transcript_status is
+     * "unavailable" for a reason that is not a failure.
+     */
+    broadcastStatus: text("broadcast_status"),
     /**
      * Spoken-word transcript, fetched only for relevance-accepted video.
      * Broadcast items name their district out loud far more often than in
@@ -386,7 +405,12 @@ export const collectionQueries = pgTable(
     /** a = every cycle, b = rotated, c = long-tail rotation. */
     tier: text("tier").notNull().default("b"),
     priority: integer("priority").notNull().default(50),
-    frequencyHours: integer("frequency_hours").notNull().default(24),
+    /*
+     * Minutes, not hours. Breaking agricultural news is worth catching inside
+     * the hour, and an integer hours column could not express that at all —
+     * its floor was 60 minutes.
+     */
+    frequencyMinutes: integer("frequency_minutes").notNull().default(1440),
     expectedNoise: text("expected_noise"), // low | medium | high
     enabled: boolean("enabled").notNull().default(true),
     lastRunAt: timestamp("last_run_at", { withTimezone: true }),

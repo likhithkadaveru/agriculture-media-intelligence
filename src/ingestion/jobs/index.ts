@@ -47,6 +47,9 @@ export type JobResult = Record<string, unknown>;
 registerConnector("demo-seed", () => new DemoSeedConnector());
 registerConnector("youtube-rss", () => new YouTubeRssConnector());
 registerConnector("youtube-api", () => new YouTubeApiConnector());
+// Same class, eventType=live — see the connector's constructor for why a
+// separate key rather than a flag on the query.
+registerConnector("youtube-live", () => new YouTubeApiConnector(undefined, "live"));
 registerConnector("news-rss", () => new NewsRssConnector());
 for (const spec of APIFY_SOURCES) {
   registerConnector(spec.key, () => new ApifyConnectorAdapter(spec));
@@ -108,7 +111,7 @@ export const jobs = {
     const connectors = [
       "youtube-rss",
       "news-rss",
-      ...(process.env.YOUTUBE_API_KEY ? ["youtube-api"] : []),
+      ...(process.env.YOUTUBE_API_KEY ? ["youtube-api", "youtube-live"] : []),
       // Apify sources are paid per result, so they run only when a token is
       // present and only for the sources the scheduler actually seeds.
       ...(process.env.APIFY_API_TOKEN
@@ -118,8 +121,17 @@ export const jobs = {
 
     for (const connectorKey of connectors) {
       // Cost guards: the API and Apify both bill per call, RSS does not.
+      // Cost guards, in search.list calls per cycle. youtube-live is capped
+      // hardest: at 48 cycles a day it would otherwise spend the entire
+      // 10,000-unit daily quota before noon and take youtube-api down with it.
       const limit =
-        connectorKey === "youtube-api" ? 8 : connectorKey.startsWith("apify-") ? 5 : 20;
+        connectorKey === "youtube-live"
+          ? 1
+          : connectorKey === "youtube-api"
+            ? 8
+            : connectorKey.startsWith("apify-")
+              ? 5
+              : 20;
       const due = await getDueQueries(ctx.db, connectorKey, limit);
       let collected = 0;
       let newMentions = 0;
@@ -128,7 +140,7 @@ export const jobs = {
           const result = await runCollection(ctx.db, connectorKey, query.query);
           collected += result.collected;
           newMentions += result.newMentions;
-          await recordQueryRun(ctx.db, query.id, result.collected, query.frequencyHours);
+          await recordQueryRun(ctx.db, query.id, result.collected, query.frequencyMinutes);
           ctx.log(
             `${connectorKey} · ${query.label ?? query.query}: ${result.collected} items, ${result.newMentions} new`,
           );
