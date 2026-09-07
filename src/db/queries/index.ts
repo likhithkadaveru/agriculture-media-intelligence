@@ -490,6 +490,14 @@ export interface BriefItem {
   voices: number;
   seasonalReason: string | null;
   trendStatus: string | null;
+  /**
+   * Ontology topic id, from the narrative key's first segment.
+   *
+   * Carried so the interface can offer verification steps written for that
+   * topic. Checking dealer stock is the right first move on a fertiliser
+   * signal and the wrong one on a rainfall signal.
+   */
+  topic: string | null;
 }
 
 export interface MorningBrief {
@@ -534,6 +542,8 @@ export async function getMorningBrief(
       voices: c.independentVoices ?? 0,
       seasonalReason: c.seasonalReason ?? null,
       trendStatus: f.narrative.trendStatus,
+      // Narrative keys are "topic/subtopic"; the topic is what steps key on.
+      topic: f.narrative.key?.split("/")[0] ?? null,
     };
   };
 

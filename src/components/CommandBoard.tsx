@@ -9,6 +9,7 @@ import { StateMap } from "@/components/StateMap";
 import { MediaCarousel } from "@/components/MediaCarousel";
 import { CoverageFeed } from "@/components/CoverageFeed";
 import { ShareBrief } from "@/components/ShareBrief";
+import { VerificationSteps } from "@/components/VerificationSteps";
 import { MixBar } from "@/components/viz";
 import { VOICE_CLASSES, PLATFORM_LABELS, formatNumber, groupVoiceMix } from "@/lib/format";
 
@@ -420,6 +421,12 @@ function LeadItem({
           See the evidence →
         </span>
       </dl>
+
+      {/* Only on the lead item: the card an officer is most likely to act on
+          first, and steps repeated down a list stop being read. */}
+      {item.kind !== "positive" && (
+        <VerificationSteps topic={item.topic} districts={item.districts} />
+      )}
 
       {/*
         Sharing sits on the lead card because that is the item most likely to
