@@ -336,6 +336,18 @@ const TONE: Record<BriefItem["kind"], { label: string; className: string; bar: s
  * out — this is the thing an officer should read even if they read nothing
  * else on the page.
  */
+/**
+ * "Medak, Nirmal, Jagtial +10" rather than thirteen names.
+ *
+ * Which districts matter most is answerable in three; the rest is a count.
+ * The full list stays one tap away on the finding page, where there is room
+ * to read it.
+ */
+function districtSummary(districts: string[], named = 3): string {
+  if (districts.length <= named) return districts.join(" · ");
+  return `${districts.slice(0, named).join(" · ")} +${districts.length - named}`;
+}
+
 function LeadItem({
   item,
   components,
@@ -363,7 +375,13 @@ function LeadItem({
         {item.headline}
       </h3>
 
-      <p className="mt-3 max-w-[70ch] text-[14.5px] leading-relaxed text-ink-secondary sm:mt-4 sm:text-[15.5px]">
+      {/*
+        Clamped on a phone. The figures below state the voices, source types
+        and districts already, so the paragraph's job here is orientation
+        rather than detail — and four lines of it pushed the numbers, which
+        are what an officer actually scans, off the screen.
+      */}
+      <p className="mt-3 line-clamp-3 max-w-[70ch] text-[14.5px] leading-relaxed text-ink-secondary sm:mt-4 sm:line-clamp-none sm:text-[15.5px]">
         {item.line}
       </p>
 
@@ -383,7 +401,7 @@ function LeadItem({
           <LeadStat
             label={item.districts.length === 1 ? "District" : "Districts"}
             value={String(item.districts.length)}
-            detail={item.districts.join(", ")}
+            detail={districtSummary(item.districts)}
           />
         )}
         {components && components.duplicatesExcluded > 0 && (
@@ -471,7 +489,7 @@ function ItemRow({
               {item.voices} independent {item.voices === 1 ? "voice" : "voices"}
             </span>
             {components && <span>{components.sourceTypeCount} source types</span>}
-            {item.districts.length > 0 && <span>{item.districts.join(", ")}</span>}
+            {item.districts.length > 0 && <span>{districtSummary(item.districts)}</span>}
             {components && components.duplicatesExcluded > 0 && (
               <span>{components.duplicatesExcluded} duplicates excluded</span>
             )}

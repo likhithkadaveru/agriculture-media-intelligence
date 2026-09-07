@@ -115,6 +115,18 @@ export function StateMap({
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-8">
+      {/*
+        On a phone the map is the secondary view, behind a disclosure.
+        It is the better instrument for "where is this concentrated" and the
+        worse one for "what do I do next": reading it means matching a shape
+        to a name, while the list answers directly and in one column. On a
+        wide screen both fit, so the map keeps its place there.
+      */}
+      <details open={!narrow} className="m-0 sm:contents">
+        <summary className="mb-3 flex cursor-pointer list-none items-center gap-2 text-[13px] font-medium text-ink-secondary sm:hidden">
+          <span className="disclosure" />
+          Open interactive map
+        </summary>
       <figure className="m-0">
         <svg
           viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`}
@@ -195,6 +207,7 @@ export function StateMap({
           })}
         </svg>
       </figure>
+      </details>
 
       <div className="space-y-6">
         {/* Legend — steps match the shading exactly. */}
@@ -258,13 +271,18 @@ export function StateMap({
            * carries the count so the section still says what it holds while
            * shut.
            */
-          <details open={!narrow} className="border-t border-border pt-4">
+          /*
+           * Open on a phone now. It was collapsed to save height when the map
+           * came first, but it IS the mobile view — a district and its counts
+           * in one line beats matching a shape to a name.
+           */
+          <details open className="border-t border-border pt-4">
             <summary className="flex cursor-pointer list-none items-center gap-2 sm:cursor-default">
               <h3 className="kicker text-ink-faint">Districts with evidence</h3>
               <span className="text-[12px] tabular-nums text-ink-faint">
                 {withEvidence.length}
               </span>
-              <span aria-hidden className="ml-auto text-ink-faint sm:hidden">
+              <span aria-hidden className="ml-auto text-ink-faint">
                 <span className="disclosure" />
               </span>
             </summary>

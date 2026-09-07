@@ -244,7 +244,22 @@ function composeCopy(
   category: "emerging" | "watch",
   c: FindingComponents,
 ): { headline: string; summary: string; whyItMatters: string; reason: string } {
-  const districtList = c.districts.join(", ");
+  /*
+   * Three districts, then a count.
+   *
+   * Enumerating all thirteen inside a sentence produced a paragraph an
+   * officer had to read to the end before learning anything, and the names
+   * after the third carried almost no information — the useful facts are
+   * where the evidence is strongest and how widely it has spread. Both
+   * survive this form; the wall of names does not.
+   */
+  const NAMED_DISTRICTS = 3;
+  const districtList =
+    c.districts.length > NAMED_DISTRICTS
+      ? `${c.districts.slice(0, NAMED_DISTRICTS).join(", ")} and ${
+          c.districts.length - NAMED_DISTRICTS
+        } more districts`
+      : c.districts.join(", ");
   const voicesPhrase = `${c.independentVoices} independent voices across ${c.sourceTypeCount} source types`;
 
   if (category === "emerging") {
