@@ -7,7 +7,7 @@
  *
  * Unknown values remain null. Nothing is invented.
  */
-import type { NormalizedMention, Platform, RawSourceItem } from "@/types/core";
+import type { BroadcastStatus, NormalizedMention, Platform, RawSourceItem } from "@/types/core";
 import { isOfficialXHandle } from "@/ingestion/connectors/apify/official-accounts";
 
 type PayloadRecord = Record<string, unknown>;
@@ -96,8 +96,27 @@ function normalizeYouTube(item: RawSourceItem, publishedAt: Date | null): Normal
     },
     thumbnailUrl: bestThumb,
     transcriptStatus: "unavailable",
+    broadcastStatus: broadcastStateOf(snippet, obj(p.liveStreamingDetails)),
     dataOrigin: item.dataOrigin,
   };
+}
+
+/**
+ * live | upcoming | ended | null, from the two fields the API splits it over.
+ *
+ * liveBroadcastContent goes back to "none" the moment a stream stops, so a
+ * finished telecast is indistinguishable from an ordinary upload by that
+ * field alone. liveStreamingDetails is what survives: it is present only for
+ * videos that were ever broadcasts.
+ */
+function broadcastStateOf(
+  snippet: Record<string, unknown>,
+  liveDetails: Record<string, unknown>,
+): BroadcastStatus | null {
+  const flag = str(snippet.liveBroadcastContent);
+  if (flag === "live") return "live";
+  if (flag === "upcoming") return "upcoming";
+  return liveDetails.actualStartTime || liveDetails.actualEndTime ? "ended" : null;
 }
 
 function normalizeX(item: RawSourceItem, publishedAt: Date | null): NormalizedMention {

@@ -6,6 +6,8 @@
  * Quota model (defaults, units/day: 10,000):
  * - search.list = 100 units per call → discovery is the expensive step.
  * - videos.list = 1 unit per call (50 ids per call).
+ * At 100 units a search, the whole daily allowance is 100 searches, so the
+ * per-cycle caps in collectLive are the real budget, not the query count.
  * The scheduler's tiers control how often search runs; this connector just
  * executes one query per collect() call.
  *
@@ -28,10 +30,22 @@ interface SearchItem {
 }
 
 export class YouTubeApiConnector implements SourceConnector {
-  key = "youtube-api";
+  readonly key: string;
   platform = "youtube" as const;
 
-  constructor(private apiKey = process.env.YOUTUBE_API_KEY) {}
+  /**
+   * `eventType` selects the broadcast-state variant. Live telecasts are not
+   * reliably reachable any other way: a channel's RSS feed holds only the
+   * last 15 uploads, and a Telugu news desk pushes a running stream out of
+   * that window within the hour, so by the time a poll sees it the telecast
+   * is over. search?eventType=live asks the question directly.
+   */
+  constructor(
+    private apiKey = process.env.YOUTUBE_API_KEY,
+    private eventType?: "live" | "upcoming",
+  ) {
+    this.key = eventType ? `youtube-${eventType}` : "youtube-api";
+  }
 
   get isConfigured(): boolean {
     return Boolean(this.apiKey);
@@ -52,7 +66,9 @@ export class YouTubeApiConnector implements SourceConnector {
 
     const searchUrl =
       `${API}/search?part=snippet&type=video&maxResults=${query.limit ?? 25}` +
-      `&order=date&regionCode=IN&q=${encodeURIComponent(query.query)}&key=${this.apiKey}`;
+      `&order=date&regionCode=IN&q=${encodeURIComponent(query.query)}` +
+      (this.eventType ? `&eventType=${this.eventType}` : "") +
+      `&key=${this.apiKey}`;
     const search = (await this.fetchJson(searchUrl)) as { items?: SearchItem[] };
     const videoIds = (search.items ?? [])
       .map((item) => item.id?.videoId)
@@ -60,7 +76,8 @@ export class YouTubeApiConnector implements SourceConnector {
     if (videoIds.length === 0) return [];
 
     const videosUrl =
-      `${API}/videos?part=snippet,statistics,contentDetails&id=${videoIds.join(",")}` +
+      `${API}/videos?part=snippet,statistics,contentDetails,liveStreamingDetails` +
+      `&id=${videoIds.join(",")}` +
       `&key=${this.apiKey}`;
     const videos = (await this.fetchJson(videosUrl)) as {
       items?: Array<Record<string, unknown> & { id?: string }>;

@@ -93,6 +93,8 @@ export interface NormalizedMention {
   thumbnailUrl?: string | null;
   /** unavailable | available | not_applicable — never fabricated. */
   transcriptStatus?: string | null;
+  /** live | upcoming | ended | null. Null means an ordinary upload. */
+  broadcastStatus?: BroadcastStatus | null;
   dataOrigin: DataOrigin;
   /**
    * Development-only: translations authored alongside demo_seed corpus items.
@@ -101,6 +103,15 @@ export interface NormalizedMention {
    */
   seedTranslation?: string | null;
 }
+
+/**
+ * State of a video broadcast at the moment it was collected.
+ *
+ * "ended" is not the same as null: a finished telecast is worth revisiting
+ * because captions usually appear once a stream stops, whereas an ordinary
+ * upload either has them already or never will.
+ */
+export type BroadcastStatus = "live" | "upcoming" | "ended";
 
 export interface CollectionQuery {
   /** Free-form query or feed identifier understood by the connector. */
