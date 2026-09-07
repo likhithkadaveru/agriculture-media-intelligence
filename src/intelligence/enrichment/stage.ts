@@ -143,6 +143,8 @@ export async function runEnrichmentStage(
           locationConfidence: result.locationConfidence,
           sentiment: result.sentiment,
           stance: result.stance,
+          eventType: result.eventType,
+          department: result.department,
           claim: result.claim,
           claimConfidence: result.claimConfidence,
           englishTranslation: result.englishTranslation,

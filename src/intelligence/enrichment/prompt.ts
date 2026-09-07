@@ -2,10 +2,10 @@
  * Shared enrichment prompt — used by every LLM-backed enricher (AI Gateway,
  * Claude CLI). Constrains extraction to ontology ids and forbids guessing.
  */
-import { CROPS, DISTRICTS, GOVERNMENT_ENTITIES, SCHEMES, TOPICS } from "@/ontology";
+import { CROPS, DEPARTMENTS, DISTRICTS, GOVERNMENT_ENTITIES, SCHEMES, TOPICS } from "@/ontology";
 import type { EnrichmentInput } from "./schema";
 
-export const ENRICHMENT_PROMPT_VERSION = "llm-v2";
+export const ENRICHMENT_PROMPT_VERSION = "llm-v3";
 
 const SUBTOPIC_IDS = TOPICS.flatMap((t) => (t.subtopics ?? []).map((s) => s.id));
 
@@ -17,11 +17,13 @@ export function buildEnrichmentPrompt(input: EnrichmentInput): string {
     "Rules:",
     "- district: assign ONLY if the content (title/description/text) clearly evidences a Telangana district. Do NOT infer a district from what the channel usually covers. Unknown is correct and common. Use the district id from the allowed list.",
     "- locationConfidence: your confidence in the district assignment (null when district is null).",
-    "- stance: the author's stance toward the government/public authorities on this issue (critical | supportive | neutral | mixed).",
+    "- stance: the author's stance toward the government/public authorities (critical | supportive | neutral | mixed). MOST CONTENT IS neutral. Use 'neutral' whenever the content reports facts, announces a meeting, event, schedule, scheme detail or statistic without praising or blaming authorities — an announcement is not criticism. Use 'critical' ONLY when the text itself blames, accuses or complains about government action or inaction. Use 'supportive' ONLY when it praises or defends them. Reporting that a problem exists is not by itself critical unless authorities are faulted for it. This field has no null, so 'neutral' is the correct answer when there is no stance to find.",
+    "- eventType: what is physically happening, if anything (protest | rally | meeting | inspection | launch | arrest | disaster | null). 'protest' covers dharna, rasta roko, gherao, road blockade, farmer agitation; 'rally' covers marches and public gatherings. null when the content reports no event.",
     "- authorType: judged from the author metadata AND content style. A news channel reporting farmer complaints is media_organisation, not farmer. Confidence required.",
     '- englishTranslation: faithful English translation of the content when it is Telugu or mixed; null for English content. NEVER paraphrase away details. Output the translated text ONLY — no "Title:" or "Description:" prefixes, no commentary.',
     "- summary: 1–2 sentence neutral English summary of what the content says.",
     "- claim: one falsifiable factual assertion the content makes (in English), or null if none.",
+    "- department: which arm of the Agriculture & Cooperation Department this concerns, from the allowed list. Assign only on clear evidence — a story about market yards is agricultural-marketing, one about cooperative societies is cooperation. Null is correct and common.",
     "- telanganaRelevance / agricultureRelevance: 0..1 — is this genuinely about Telangana, and genuinely about agriculture? Political speech that merely name-drops agriculture scores low agricultureRelevance.",
     "- Output MUST be a single JSON object with exactly these keys:",
     '  language ("te"|"en"|"mixed"|"other"), telanganaRelevance, agricultureRelevance,',
@@ -32,6 +34,8 @@ export function buildEnrichmentPrompt(input: EnrichmentInput): string {
     '  authorType (one of: government, farmer, farmer_organisation, fpo, agriculture_expert, academic, journalist, media_organisation, politician, creator, dealer, ngo, citizen, unknown),',
     "  authorTypeConfidence (0..1 or null),",
     '  sentiment ("negative"|"positive"|"neutral"|"mixed"), stance ("critical"|"supportive"|"neutral"|"mixed"),',
+    '  eventType ("protest"|"rally"|"meeting"|"inspection"|"launch"|"arrest"|"disaster"|null),',
+    "  department (allowed department id or null),",
     "  claim (string or null), claimConfidence (0..1 or null),",
     "  englishTranslation (string or null), summary (string or null), confidence (0..1).",
     "",
@@ -40,6 +44,7 @@ export function buildEnrichmentPrompt(input: EnrichmentInput): string {
     `Allowed scheme ids: ${SCHEMES.map((s) => s.id).join(", ")}`,
     `Allowed crop ids: ${CROPS.map((c) => c.id).join(", ")}`,
     `Allowed government entity ids: ${GOVERNMENT_ENTITIES.map((e) => e.id).join(", ")}`,
+    `Allowed department ids: ${DEPARTMENTS.map((d) => `${d.id} (${d.en})`).join(", ")}`,
     `Allowed district ids: ${DISTRICTS.map((d) => d.id).join(", ")}`,
     "",
     `PLATFORM: ${input.platform}`,

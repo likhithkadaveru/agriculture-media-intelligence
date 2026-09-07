@@ -224,6 +224,11 @@ export class HeuristicEnricher implements Enricher {
       stance,
       claim,
       claimConfidence,
+      // The heuristic enricher classifies from keyword tables and has no way
+      // to judge either of these. Null is the honest answer, and matches its
+      // existing refusal to fabricate a summary.
+      eventType: null,
+      department: null,
       englishTranslation,
       summary: null, // heuristic does not fabricate summaries
       confidence: Math.min(

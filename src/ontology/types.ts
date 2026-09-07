@@ -41,3 +41,19 @@ export interface TopicEntry extends OntologyTerm {
   /** Subtopic ids that specialise this topic. */
   subtopics?: OntologyTerm[];
 }
+
+/**
+ * An arm of the Agriculture & Cooperation Department.
+ *
+ * The structure is not invented here: it is the department's own, as set out
+ * in the Bihar–Telangana bilateral briefing of 12 Aug 2026 — four line
+ * departments, two universities, one bank and twelve agencies. Keeping the
+ * official shape matters because an officer reading a finding asks "is this
+ * mine?", and the answer has to match the org chart they actually work in.
+ */
+export interface DepartmentEntry extends OntologyTerm {
+  /** department | university | bank | agency — the doc's own four groupings. */
+  kind: "department" | "university" | "bank" | "agency";
+  /** Parent department id for an agency that clearly sits under one. */
+  parent?: string;
+}

@@ -20,6 +20,8 @@ describe("enrichment schema validation", () => {
       authorTypeConfidence: 0.8,
       sentiment: "negative",
       stance: "critical",
+      eventType: null,
+      department: null,
       claim: null,
       claimConfidence: null,
       englishTranslation: null,
@@ -36,6 +38,19 @@ describe("enrichment schema validation", () => {
     expect(
       EnrichmentResultSchema.safeParse({ ...base, stance: "angry" }).success,
     ).toBe(false);
+    expect(
+      EnrichmentResultSchema.safeParse({ ...base, eventType: "riot" }).success,
+    ).toBe(false);
+    /*
+     * Both new fields are required-but-nullable rather than optional. That is
+     * not a style choice: OpenAI's strict structured outputs reject a schema
+     * whose `required` array omits any property, so an omitted field must
+     * fail here or it will fail at the API instead.
+     */
+    const { eventType: _e, ...withoutEventType } = base;
+    expect(EnrichmentResultSchema.safeParse(withoutEventType).success).toBe(false);
+    const { department: _d, ...withoutDepartment } = base;
+    expect(EnrichmentResultSchema.safeParse(withoutDepartment).success).toBe(false);
   });
 
   it("heuristic enricher output always passes the schema", async () => {

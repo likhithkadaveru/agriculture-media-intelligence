@@ -43,6 +43,23 @@ export const EnrichmentResultSchema = z.object({
   sentiment: z.enum(["negative", "positive", "neutral", "mixed"]),
   stance: z.enum(["critical", "supportive", "neutral", "mixed"]),
 
+  /*
+   * What is physically happening. Separate from stance on purpose: a rally is
+   * an event whether or not the reporting takes a side, and an officer needs
+   * to be told one is under way even when the coverage is perfectly neutral.
+   * Nullable but NOT defaulted: OpenAI's strict structured outputs require
+   * every property to appear in `required`, and a Zod default makes the field
+   * optional in the emitted JSON schema — which the API rejects outright
+   * ("'required' is required to be supplied and to be an array including
+   * every key in properties"). The prompt always asks for both, so a plain
+   * nullable is both accepted and honest.
+   */
+  eventType: z
+    .enum(["protest", "rally", "meeting", "inspection", "launch", "arrest", "disaster"])
+    .nullable(),
+  /** Arm of the Agriculture & Cooperation Department this concerns. */
+  department: z.string().nullable(),
+
   claim: z.string().nullable(),
   claimConfidence: z.number().min(0).max(1).nullable(),
 
