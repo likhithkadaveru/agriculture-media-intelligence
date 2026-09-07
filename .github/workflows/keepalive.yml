@@ -1,0 +1,30 @@
+# Keeps scheduled workflows from being switched off.
+#
+# GitHub disables cron workflows in a repository with no activity for 60
+# days. Collection would stop with no error anywhere — the failure mode this
+# project has hit repeatedly under other names. A weekly no-op commit is
+# cheaper than discovering a fortnight of missing coverage, and a day without
+# collection cannot be backfilled.
+name: keepalive
+
+on:
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  touch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Record a heartbeat
+        run: |
+          date -u +"%Y-%m-%dT%H:%M:%SZ" > .github/last-run
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/last-run
+          git diff --staged --quiet || git commit -m "Keep scheduled collection enabled"
+          git push
