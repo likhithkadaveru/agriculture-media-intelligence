@@ -68,6 +68,18 @@ export default async function CommandPage() {
   const unfavourable = coverageCounts.unfavourable;
   const favourable = coverageCounts.favourable;
 
+  /*
+   * The one sentence the page exists to deliver.
+   *
+   * An officer opening this on a phone should learn what needs doing before
+   * scrolling. Previously the first screen was a banner, a sub-banner,
+   * branding, the date and five aggregate counts — every one of them true,
+   * none of them a reason to act — and the first actual signal began below
+   * the fold. Volume is a property of the monitoring; it is not the brief.
+   */
+  const needsVerification = brief.items.length;
+  const briefDistricts = new Set(brief.items.flatMap((i) => i.districts));
+
   return (
     <div className="min-h-screen">
       <SiteHeader activeOrigin={env.activeOrigin} lastGeneratedAt={env.lastGeneratedAt} />
@@ -103,32 +115,63 @@ export default async function CommandPage() {
               </p>
             </div>
 
-            <dl className="grid w-full grid-cols-2 gap-x-6 gap-y-5 border-t border-border pt-5 sm:flex sm:w-auto sm:flex-wrap sm:gap-x-10 sm:gap-y-4 sm:border-0 sm:pt-0">
-              <Stat label="Public items" value={formatNumber(env.relevantMentions)} />
-              <Stat label="Conversations" value={String(env.narrativeCount)} />
-              <Stat
-                label="Needs verification"
-                value={formatNumber(unfavourable)}
-                tone="critical"
-              />
-              <Stat label="Positive" value={formatNumber(favourable)} tone="positive" />
-              {/* Districts is the one state-wide figure among four counts of
-                  items — spanning it is what stops the odd fifth cell from
-                  reading as a wrap accident. */}
-              <Stat
-                label="Districts"
-                value={`${districts.districts.length}`}
-                suffix={`/${DISTRICTS.length}`}
-                span
-              />
-            </dl>
+            {/*
+              Statistics have moved below the signals, into Coverage. They
+              describe how much was collected, which is a question about the
+              system rather than about the state of things — and it was
+              occupying the screen an officer needs for what to do next.
+            */}
           </div>
+
+          {needsVerification > 0 && (
+            <p className="mt-5 text-[15px] leading-snug text-ink sm:mt-6 sm:text-[16px]">
+              <span className="font-semibold text-critical">
+                {needsVerification} {needsVerification === 1 ? "issue" : "issues"} require
+                {needsVerification === 1 ? "s" : ""} verification
+              </span>
+              {briefDistricts.size > 0 && (
+                <span className="text-ink-secondary">
+                  {" "}
+                  across {briefDistricts.size}{" "}
+                  {briefDistricts.size === 1 ? "district" : "districts"}
+                </span>
+              )}
+            </p>
+          )}
         </div>
       </section>
 
       <main className="mx-auto max-w-[1180px] px-4 pb-16 sm:px-6 sm:pb-24">
         {hasAnything ? (
-          <CommandBoard data={board} />
+          <>
+            <CommandBoard data={board} />
+
+            {/*
+              Monitoring volume, kept but demoted. It answers "how much is
+              this system seeing", which matters for trusting the brief and
+              not at all for acting on it — so it sits after the signals
+              rather than in front of them.
+            */}
+            <section className="mt-12 border-t border-border pt-6 sm:mt-16">
+              <h2 className="kicker text-ink-faint">Coverage collected</h2>
+              <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-5 sm:flex sm:flex-wrap sm:gap-x-10 sm:gap-y-4">
+                <Stat label="Public items" value={formatNumber(env.relevantMentions)} />
+                <Stat label="Conversations" value={String(env.narrativeCount)} />
+                <Stat
+                  label="Needs verification"
+                  value={formatNumber(unfavourable)}
+                  tone="critical"
+                />
+                <Stat label="Positive" value={formatNumber(favourable)} tone="positive" />
+                <Stat
+                  label="Districts"
+                  value={`${districts.districts.length}`}
+                  suffix={`/${DISTRICTS.length}`}
+                  span
+                />
+              </dl>
+            </section>
+          </>
         ) : (
           <div className="mt-24 text-center text-ink-muted">
             <p className="headline-serif text-[22px]">Nothing has crossed a threshold.</p>

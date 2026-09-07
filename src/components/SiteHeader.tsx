@@ -60,9 +60,10 @@ export function SiteHeader({
       {env && (
         <div className={`border-b px-4 py-1.5 text-left sm:px-6 sm:text-center ${env.className}`}>
           <span className="kicker">{env.label}</span>
-          {/* Centred text that wraps loses its centre. Left-aligned below the
-              label on mobile, inline on one line above it. */}
-          <span className="ml-0 block text-[11px] leading-snug tracking-normal opacity-70 sm:ml-2 sm:inline">
+          {/* The explanatory sentence is a second line on a phone, and this is
+              already the second banner. The label alone carries the status;
+              the sentence keeps its place wherever there is width for it. */}
+          <span className="ml-2 hidden text-[11px] leading-snug tracking-normal opacity-70 sm:inline">
             {env.detail}
           </span>
         </div>
@@ -83,8 +84,20 @@ export function SiteHeader({
               <div className="headline-serif mt-1 text-[21px] leading-none text-ink sm:text-[27px]">
                 Agriculture Intelligence
               </div>
-              <div className="mt-1.5 text-[11.5px] tracking-[0.02em] text-ink-muted">
+              {/* Third statement of the same fact, and the first two are
+                  directly above it. Kept where there is room, dropped on a
+                  phone where the banner has already said it. */}
+              <div className="mt-1.5 hidden text-[11.5px] tracking-[0.02em] text-ink-muted sm:block">
                 Prototype · not an official Government of Telangana system
+              </div>
+              {/*
+                Freshness belongs on the phone more than on the desktop, not
+                less: an officer acting on this needs to know how current it
+                is, and the desktop-only block meant the one reader who could
+                not see it was the one most likely to be in the field.
+              */}
+              <div className="mt-1 text-[11.5px] text-ink-muted sm:hidden">
+                Updated {formatDateTime(lastGeneratedAt)} IST
               </div>
             </div>
           </Link>
