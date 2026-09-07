@@ -8,6 +8,66 @@ export function PlatformBadge({ platform }: { platform: string }) {
   );
 }
 
+/**
+ * Whether a video was airing when it was collected.
+ *
+ * "Was live" is shown rather than hidden: a finished telecast is the one
+ * case where a missing transcript is temporary, since captions usually
+ * appear after a stream stops. Ordinary uploads render nothing at all —
+ * a badge on every card would carry no information.
+ */
+export function BroadcastChip({ status }: { status: string | null }) {
+  if (status === "live") {
+    return (
+      <span className="kicker inline-flex items-center gap-1 rounded-[3px] border border-critical px-1.5 py-0.5 font-medium text-critical">
+        <span aria-hidden className="inline-block h-1.5 w-1.5 rounded-full bg-critical" />
+        Live now
+      </span>
+    );
+  }
+  if (status === "upcoming") {
+    return (
+      <span className="kicker inline-flex items-center rounded-[3px] border border-border-strong px-1.5 py-0.5 text-ink-secondary">
+        Scheduled
+      </span>
+    );
+  }
+  if (status === "ended") {
+    return (
+      <span className="kicker inline-flex items-center rounded-[3px] border border-border px-1.5 py-0.5 text-ink-faint">
+        Was live
+      </span>
+    );
+  }
+  return null;
+}
+
+/**
+ * What is physically happening, when something is.
+ *
+ * Only the three that warrant interrupting someone are coloured; a meeting or
+ * a launch is shown plainly. Colouring every event would make the red mean
+ * "an event" rather than "go and look at this".
+ */
+const URGENT_EVENTS = new Set(["protest", "rally", "disaster"]);
+
+export function EventChip({ event }: { event: string | null }) {
+  if (!event) return null;
+  const urgent = URGENT_EVENTS.has(event);
+  return (
+    <span
+      className={`kicker inline-flex items-center gap-1 rounded-[3px] border px-1.5 py-0.5 ${
+        urgent
+          ? "border-critical bg-[var(--critical-soft)] font-semibold text-critical"
+          : "border-border text-ink-faint"
+      }`}
+    >
+      {urgent && <span aria-hidden className="inline-block h-1.5 w-1.5 rounded-full bg-critical" />}
+      {event}
+    </span>
+  );
+}
+
 export function CategoryKicker({ category }: { category: string }) {
   const styles: Record<string, { label: string; className: string }> = {
     emerging: { label: "Emerging signal", className: "text-emerging" },

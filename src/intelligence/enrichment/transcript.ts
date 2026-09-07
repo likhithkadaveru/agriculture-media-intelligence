@@ -12,7 +12,7 @@
  * caption track. A status of "unavailable" is a real answer and is recorded
  * as one rather than retried every cycle.
  */
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { mentions } from "@/db/schema";
 
@@ -75,7 +75,9 @@ export async function runTranscriptStage(
   db: Db,
   options: { limit?: number; log?: (m: string) => void } = {},
 ): Promise<TranscriptStageResult> {
-  const limit = options.limit ?? Number(process.env.TRANSCRIPT_MAX_PER_CYCLE ?? 10);
+  // 25 a cycle clears a ~90-video backlog in about two hours at roughly a
+  // dollar, and in steady state comfortably outpaces what collection adds.
+  const limit = options.limit ?? Number(process.env.TRANSCRIPT_MAX_PER_CYCLE ?? 25);
   const log = options.log ?? (() => {});
   const result: TranscriptStageResult = {
     attempted: 0,
@@ -95,7 +97,18 @@ export async function runTranscriptStage(
       and(
         eq(mentions.platform, "youtube"),
         eq(mentions.relevanceStatus, "accepted"),
-        eq(mentions.status, "normalized"),
+        /*
+         * Any stage of the pipeline, not just pre-enrichment.
+         *
+         * Restricting this to "normalized" meant a video had one chance at a
+         * transcript — the single cycle between normalisation and enrichment.
+         * Miss it (a rate limit, an outage, a cap already spent that cycle)
+         * and the mention moved to "enriched" and became permanently
+         * invisible here. 93 accepted videos had silently accumulated in
+         * exactly that state, analysed from title and description alone with
+         * no way back.
+         */
+        inArray(mentions.status, ["normalized", "enriched", "narrative_assigned"]),
         isNull(mentions.transcript),
         // "unavailable" is the untried default written at normalization;
         // "none" is this stage's verdict that the video genuinely has none.
@@ -120,6 +133,19 @@ export async function runTranscriptStage(
         .where(eq(mentions.id, mention.id));
       if (text) {
         result.retrieved++;
+        /*
+         * A transcript arriving after enrichment is new evidence, and the
+         * whole point of fetching it is that spoken words name a district the
+         * title never does. Send the mention back to "normalized" so the
+         * enrichment stage reads it again — otherwise we would pay for a
+         * transcript and then ignore it.
+         */
+        if (mention.status !== "normalized") {
+          await db
+            .update(mentions)
+            .set({ status: "normalized", updatedAt: new Date() })
+            .where(eq(mentions.id, mention.id));
+        }
         log(`transcript: ${text.split(" ").length} words for ${mention.url}`);
       } else {
         result.unavailable++;

@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 
 import { DISTRICT_SHAPES, MAP_HEIGHT, MAP_WIDTH } from "@/ontology/geo";
@@ -50,8 +52,14 @@ function labelInk(d: CoverageDistrict | undefined): string {
 
 export function StateMap({
   coverage,
+  selected,
+  onSelect,
 }: {
   coverage: CoverageDistrict[];
+  /** District name currently isolated, or null for the whole state. */
+  selected?: string | null;
+  /** Tapping a district calls this with its name, or null to clear it. */
+  onSelect?: (district: string | null) => void;
 }) {
   const byId = new Map(coverage.map((c) => [c.id, c]));
   const nameById = new Map(DISTRICTS.map((d) => [d.id, d.en]));
@@ -79,6 +87,10 @@ export function StateMap({
           {DISTRICT_SHAPES.map((shape) => {
             const c = byId.get(shape.id);
             const name = nameById.get(shape.id) ?? shape.id;
+            const isSelected = selected === name;
+            /* Only districts carrying evidence are tappable — filtering to an
+               empty one would look like breakage rather than an empty result. */
+            const selectable = Boolean(onSelect) && Boolean(c && c.total > 0);
             const summary =
               c && c.total > 0
                 ? `${name}: ${c.total} item${c.total === 1 ? "" : "s"}, ${c.unfavourable} unfavourable, ${c.favourable} favourable`
@@ -89,11 +101,28 @@ export function StateMap({
                 d={shape.d}
                 className="district-shape"
                 fill={shadeFor(c)}
-                stroke="var(--rule-strong)"
-                strokeWidth={0.8}
+                /* Selection is a heavy outline, not a different fill, so the
+                   shading keeps meaning coverage balance and nothing else. */
+                stroke={isSelected ? "var(--seal)" : "var(--rule-strong)"}
+                strokeWidth={isSelected ? 2.4 : 0.8}
                 strokeLinejoin="round"
+                role={selectable ? "button" : undefined}
+                tabIndex={selectable ? 0 : undefined}
+                aria-pressed={selectable ? isSelected : undefined}
+                style={selectable ? { cursor: "pointer" } : undefined}
+                onClick={selectable ? () => onSelect?.(isSelected ? null : name) : undefined}
+                onKeyDown={
+                  selectable
+                    ? (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onSelect?.(isSelected ? null : name);
+                        }
+                      }
+                    : undefined
+                }
               >
-                <title>{summary}</title>
+                <title>{selectable ? `${summary} — tap to filter` : summary}</title>
               </path>
             );
           })}

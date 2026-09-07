@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { CoverageItem } from "@/db/queries";
 import { LANGUAGE_LABELS, PLATFORM_LABELS, formatDateTime } from "@/lib/format";
+import { EventChip } from "@/components/badges";
 
 /**
  * The clippings digest.
@@ -38,9 +39,41 @@ const STANCE: Record<string, { label: string; className: string; rule: string }>
   neutral: { label: "Factual", className: "text-ink-muted", rule: "bg-[var(--rule-strong)]" },
 };
 
-export function CoverageFeed({ items }: { items: CoverageItem[] }) {
+export function CoverageFeed({
+  items,
+  district,
+  onClearDistrict,
+}: {
+  items: CoverageItem[];
+  /** District the list is currently narrowed to, if any. */
+  district?: string | null;
+  onClearDistrict?: () => void;
+}) {
   const [expanded, setExpanded] = useState(false);
-  if (items.length === 0) return null;
+  /*
+   * An empty list used to mean "render nothing", which was safe when the feed
+   * was never filtered. Now that a lens or a district can legitimately match
+   * nothing, silence would read as a broken page — so say so instead.
+   */
+  if (items.length === 0) {
+    return (
+      <section>
+        <h2 className="headline-serif text-[19px] text-ink sm:text-[20px]">Coverage</h2>
+        <p className="mt-3 text-[13px] text-ink-muted">
+          Nothing here{district ? ` for ${district}` : ""} in this view.
+          {onClearDistrict && district && (
+            <button
+              type="button"
+              onClick={onClearDistrict}
+              className="ml-2 font-medium text-seal underline underline-offset-2"
+            >
+              Show the whole state
+            </button>
+          )}
+        </p>
+      </section>
+    );
+  }
 
   const foldable = items.length > MOBILE_VISIBLE;
 
@@ -49,7 +82,23 @@ export function CoverageFeed({ items }: { items: CoverageItem[] }) {
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <h2 className="headline-serif text-[19px] text-ink sm:text-[20px]">Coverage</h2>
         <p className="text-[12.5px] text-ink-muted">
-          {items.length} most recent items across press, broadcast and public posts
+          {district ? (
+            <>
+              <span className="font-medium text-ink-secondary">{district}</span> ·{" "}
+              {items.length} item{items.length === 1 ? "" : "s"}
+              {onClearDistrict && (
+                <button
+                  type="button"
+                  onClick={onClearDistrict}
+                  className="ml-2 font-medium text-seal underline underline-offset-2"
+                >
+                  Clear
+                </button>
+              )}
+            </>
+          ) : (
+            `${items.length} most recent items across press, broadcast and public posts`
+          )}
         </p>
       </div>
 
@@ -103,6 +152,7 @@ export function CoverageFeed({ items }: { items: CoverageItem[] }) {
                   )}
 
                   <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-ink-faint">
+                    <EventChip event={item.eventType} />
                     {item.district ? (
                       <span className="font-medium text-ink-muted">{item.district}</span>
                     ) : (
