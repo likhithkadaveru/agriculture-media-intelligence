@@ -744,16 +744,8 @@ export async function getCommandView(db: Db): Promise<CommandView> {
     getMediaItems(db, env.activeOrigin, 20),
   ]);
 
-  const voiceMix: Record<string, number> = {};
-  const sourceMix: Record<string, number> = {};
-  for (const f of findings) {
-    for (const [voice, n] of Object.entries(f.narrative.voiceMix)) {
-      voiceMix[voice] = (voiceMix[voice] ?? 0) + n;
-    }
-    for (const [platform, n] of Object.entries(f.narrative.sourceMix)) {
-      sourceMix[platform] = (sourceMix[platform] ?? 0) + n;
-    }
-  }
+  // Counted per distinct mention, not summed across findings — see above.
+  const { voiceMix, sourceMix } = await getCompositionMix(db, env.activeOrigin);
 
   return { env, brief, findings, districts, media, voiceMix, sourceMix };
 }
@@ -891,6 +883,48 @@ export interface CoverageCounts {
   all: number;
   /** The same four counts, per district name. */
   byDistrict: Record<string, { unfavourable: number; factual: number; favourable: number; all: number }>;
+}
+
+/**
+ * Voice and source composition, counted once per item.
+ *
+ * These used to be summed across findings, so a mention belonging to three
+ * narratives was counted three times: the composition strips reported 858
+ * items while the standing band above reported 541. Both were arithmetically
+ * correct and they described different things, which on a page an official
+ * is asked to trust is worse than either being wrong.
+ *
+ * Counting distinct mentions is also the only denominator that makes the
+ * derived percentages mean anything — "1% farmer-originated" is a different
+ * claim depending on whether its base double-counts the widely-covered
+ * narratives, which are exactly the ones least likely to originate with a
+ * farmer.
+ */
+export async function getCompositionMix(
+  db: Db,
+  activeOrigin: string | null,
+): Promise<{ voiceMix: Record<string, number>; sourceMix: Record<string, number> }> {
+  const rows = await db
+    .select({
+      platform: mentions.platform,
+      authorType: authors.authorType,
+      dataOrigin: mentions.dataOrigin,
+      status: mentions.status,
+    })
+    .from(mentions)
+    .leftJoin(authors, eq(authors.id, mentions.authorId))
+    .where(eq(mentions.relevanceStatus, "accepted"));
+
+  const voiceMix: Record<string, number> = {};
+  const sourceMix: Record<string, number> = {};
+  for (const r of rows) {
+    if (activeOrigin && r.dataOrigin !== activeOrigin) continue;
+    if (r.status === "duplicate") continue;
+    const voice = r.authorType ?? "unknown";
+    voiceMix[voice] = (voiceMix[voice] ?? 0) + 1;
+    sourceMix[r.platform] = (sourceMix[r.platform] ?? 0) + 1;
+  }
+  return { voiceMix, sourceMix };
 }
 
 export async function getCoverageCounts(
