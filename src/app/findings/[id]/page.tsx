@@ -91,6 +91,7 @@ export default async function FindingPage({
               <h2 className="headline-serif text-[20px] text-ink sm:text-[22px]">Evidence</h2>
               <span className="text-[12.5px] text-ink-muted">
                 {evidence.length} canonical items
+                {c.windowDays ? ` in the past ${c.windowDays} days` : ""}
                 {c.duplicatesExcluded > 0 &&
                   ` · ${c.duplicatesExcluded} duplicates shown but not counted`}
               </span>

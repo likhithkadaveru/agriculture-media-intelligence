@@ -178,10 +178,31 @@ Aggregation over canonical mentions only:
 
 ## Stage 5 — findings (`src/intelligence/findings`)
 
-Category thresholds (deliberately legible):
+A finding describes the **last 7 days of evidence**, not a narrative's
+lifetime. Every count below is taken inside that window; a narrative with no
+evidence in the window produces no finding, however large it is. The window
+closes at the newest evidence in the data origin (the clock, for live data),
+so a verified snapshot keeps producing the same findings after capture.
+
+Category thresholds (deliberately legible, all inside the window):
 
 - **emerging**: ≥ 6 distinct items AND ≥ 2 districts AND ≥ 3 source types;
 - **watch**: ≥ 2 distinct items.
+
+Each finding also records the narrative's **baseline**: canonical items per
+week over the four weeks before the window, and the week's `growthFactor`
+against it (null when there is no baseline). Ranking credits growth up to a
+bounded cap; a narrative with no baseline — new, or silent for a month — sits
+at that cap, because something appearing from nothing is the signal to
+surface. Copy states the trajectory in words ("3.2× its four-week average of
+6 a week", "first evidence this week", "resurfacing after no evidence in the
+previous 4 weeks") and headlines say *rising*, *continuing* or *resurfacing*
+accordingly.
+
+Why: computed from lifetime totals, the oldest and broadest narratives passed
+every threshold by accumulation once search discovery reached years-old
+videos, and the front page showed the five biggest piles rather than the five
+things that changed this week.
 
 **Divergence** is computed, not asserted: official voices lean supportive of
 the government position AND ≥ 50% of stance-carrying public voices are
@@ -189,7 +210,8 @@ critical. The finding page shows the underlying stance-by-voice counts.
 
 Every finding stores named `components` (independent voices, district list,
 source types, farmer-originated share, critical share, divergence flag,
-duplicates excluded) plus a human-readable `reason` naming the thresholds it
+duplicates excluded, window end, baseline weekly rate, growth factor,
+lifetime item count) plus a human-readable `reason` naming the thresholds it
 crossed. Ranking is a documented bounded sum over components
 (`rankScore` in `findings/stage.ts`) — no opaque score exists anywhere.
 

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { BriefItem, CoverageCounts, CoverageItem, MediaItem } from "@/db/queries";
 import type { FindingComponents } from "@/intelligence/findings/stage";
+import { BASELINE_WEEKS, trajectoryStat } from "@/intelligence/findings/trajectory";
 import type { CoverageDistrict } from "@/components/StateMap";
 import { StateMap } from "@/components/StateMap";
 import { MediaCarousel } from "@/components/MediaCarousel";
@@ -402,6 +403,16 @@ function LeadItem({
 
       <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-border pt-4 sm:mt-6 sm:flex sm:flex-wrap sm:gap-x-10 sm:pt-5">
         <LeadStat label="Independent voices" value={String(item.voices)} />
+        {/* The week against the narrative's own past — the figure that
+            separates a story that is happening from one that is merely
+            large. Absent on findings generated before windows existed. */}
+        {components?.windowDays && (
+          <LeadStat
+            label={`This week vs ${BASELINE_WEEKS}-week avg`}
+            value={trajectoryStat(components).value}
+            detail={trajectoryStat(components).detail}
+          />
+        )}
         {components && (
           <LeadStat label="Source types" value={String(components.sourceTypeCount)} />
         )}
@@ -518,6 +529,9 @@ function ItemRow({
             <span>
               {item.voices} independent {item.voices === 1 ? "voice" : "voices"}
             </span>
+            {components?.windowDays && (
+              <span>{trajectoryStat(components).value} vs {BASELINE_WEEKS}-week avg</span>
+            )}
             {components && <span>{components.sourceTypeCount} source types</span>}
             {item.districts.length > 0 && <span>{districtSummary(item.districts)}</span>}
             {components && components.duplicatesExcluded > 0 && (
