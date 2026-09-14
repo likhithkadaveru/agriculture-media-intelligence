@@ -551,23 +551,32 @@ export async function getMorningBrief(
   const positives: BriefItem[] = [];
 
   for (const f of findings) {
-    const stance = f.narrative.stanceSummary;
-    const total = Object.values(stance).reduce((a, b) => a + b, 0);
-    const criticalShare = total === 0 ? 0 : (stance["critical"] ?? 0) / total;
-    const supportiveShare = total === 0 ? 0 : (stance["supportive"] ?? 0) / total;
+    /*
+     * The finding stage classed the WEEK's stance and stored it. Findings
+     * generated before that existed carry no signal; for those, fall back to
+     * the narrative's lifetime stance so an old row is still placed somewhere.
+     */
+    const c = f.finding.components as { signal?: string };
+    let signal = c.signal;
+    if (!signal) {
+      const stance = f.narrative.stanceSummary;
+      const total = Object.values(stance).reduce((a, b) => a + b, 0);
+      const criticalShare = total === 0 ? 0 : (stance["critical"] ?? 0) / total;
+      const supportiveShare = total === 0 ? 0 : (stance["supportive"] ?? 0) / total;
+      signal = supportiveShare >= 0.5 && criticalShare < 0.25 ? "positive" : "concern";
+    }
 
-    // A narrative read mostly positively belongs in the good-news column,
-    // not buried among problems.
-    if (supportiveShare >= 0.5 && criticalShare < 0.25) {
+    // A week read mostly positively belongs in the good-news column, not
+    // buried among problems.
+    if (signal === "positive") {
       positives.push(toItem(f, "positive"));
       continue;
     }
-    const trend = f.narrative.trendStatus;
     const kind: BriefItem["kind"] =
-      f.finding.category === "emerging"
-        ? "attention"
-        : trend === "rising" || trend === "emerging"
-          ? "escalating"
+      signal === "escalating"
+        ? "escalating"
+        : f.finding.category === "emerging"
+          ? "attention"
           : "watch";
     items.push(toItem(f, kind));
   }

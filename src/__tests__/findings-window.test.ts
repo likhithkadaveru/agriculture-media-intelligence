@@ -11,6 +11,7 @@ import {
   trajectoryOf,
   type FindingComponents,
 } from "@/intelligence/findings/stage";
+import { classifySignal, describeStance } from "@/intelligence/findings/stance";
 
 function components(overrides: Partial<FindingComponents>): FindingComponents {
   return {
@@ -34,6 +35,13 @@ function components(overrides: Partial<FindingComponents>): FindingComponents {
     baselineWeeklyRate: 4,
     growthFactor: 3,
     lifetimeMentionCount: 28,
+    stanceMix: { critical: 6, mixed: 1, neutral: 4, supportive: 1 },
+    baselineStanceMix: { critical: 3, neutral: 10, supportive: 3 },
+    stanceCarrying: 12,
+    concernShare: 7 / 12,
+    baselineConcernShare: 3 / 16,
+    supportiveShare: 1 / 12,
+    signal: "concern",
     ...overrides,
   };
 }
@@ -80,5 +88,61 @@ describe("ranking", () => {
     const surge = components({ mentionCount: 12, independentVoices: 8, growthFactor: 4 });
     const flat = components({ mentionCount: 40, independentVoices: 10, growthFactor: 1 });
     expect(rankScore(surge)).toBeGreaterThan(rankScore(flat));
+  });
+});
+
+describe("stance", () => {
+  const stance = (o: Partial<Parameters<typeof classifySignal>[0]>) => ({
+    stanceCarrying: 20,
+    concernShare: 0,
+    supportiveShare: 0,
+    baselineConcernShare: 0.2,
+    ...o,
+  });
+
+  it("needs a critical majority before a week is a concern", () => {
+    expect(classifySignal(stance({ concernShare: 0.54 }))).toBe("concern");
+    expect(classifySignal(stance({ concernShare: 0.1 }))).toBe("coverage");
+    expect(classifySignal(stance({ stanceCarrying: 0 }))).toBe("coverage");
+  });
+
+  it("treats a clear rise in criticism as escalating even below a majority", () => {
+    expect(classifySignal(stance({ concernShare: 0.4, baselineConcernShare: 0.1 }))).toBe("escalating");
+    expect(classifySignal(stance({ concernShare: 0.4, baselineConcernShare: 0.35 }))).toBe("coverage");
+    // Nothing to rise from.
+    expect(classifySignal(stance({ concernShare: 0.4, baselineConcernShare: null }))).toBe("coverage");
+  });
+
+  it("files a supportive majority as good news unless criticism is also present", () => {
+    expect(classifySignal(stance({ supportiveShare: 0.7, concernShare: 0.1 }))).toBe("positive");
+    expect(classifySignal(stance({ supportiveShare: 0.5, concernShare: 0.5 }))).toBe("concern");
+  });
+
+  it("says the stance in one clause", () => {
+    expect(describeStance(stance({ concernShare: 0.54, baselineConcernShare: 0.2 }))).toBe(
+      "54% of items critical or mixed this week, up from 20% over the previous four weeks",
+    );
+    expect(describeStance(stance({ supportiveShare: 0.7, concernShare: 0.1 }))).toBe(
+      "70% of items supportive this week",
+    );
+  });
+
+  it("ranks a critical week above a larger neutral one", () => {
+    const critical = components({
+      mentionCount: 20,
+      independentVoices: 8,
+      growthFactor: 2,
+      concernShare: 0.6,
+      baselineConcernShare: 0.2,
+    });
+    const neutral = components({
+      mentionCount: 40,
+      independentVoices: 10,
+      growthFactor: 2,
+      concernShare: 0,
+      baselineConcernShare: 0,
+      signal: "coverage",
+    });
+    expect(rankScore(critical)).toBeGreaterThan(rankScore(neutral));
   });
 });

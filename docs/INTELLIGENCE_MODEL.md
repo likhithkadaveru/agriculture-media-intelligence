@@ -184,6 +184,22 @@ evidence in the window produces no finding, however large it is. The window
 closes at the newest evidence in the data origin (the clock, for live data),
 so a verified snapshot keeps producing the same findings after capture.
 
+**Stance decides what a finding is; volume only decides whether it exists.**
+Over the window's stance-carrying items (critical, mixed, supportive,
+neutral), the stage classes the week as one of:
+
+- **concern** — ≥ 50% critical or mixed ("mixed" carries criticism);
+- **escalating** — ≥ 25% critical or mixed AND at least 20 points above the
+  narrative's share over the four baseline weeks;
+- **positive** — ≥ 50% supportive AND < 25% critical or mixed;
+- **coverage** — anything else, including a week with no stance at all.
+
+Coverage raises no finding. A pile of neutral how-to videos stays on its
+narrative page and in the Watchlist tab (which already says "reported without
+praise or blame"); it no longer gets a card, a rank, a seasonal warning or a
+push alert. The rules and the shares are stored in `components` and repeated
+in the finding's `reason`; the rules live in `findings/stance.ts`.
+
 Category thresholds (deliberately legible, all inside the window):
 
 - **emerging**: ≥ 6 distinct items AND ≥ 2 districts AND ≥ 3 source types;
@@ -192,7 +208,8 @@ Category thresholds (deliberately legible, all inside the window):
 Each finding also records the narrative's **baseline**: canonical items per
 week over the four weeks before the window, and the week's `growthFactor`
 against it (null when there is no baseline). Ranking credits growth up to a
-bounded cap; a narrative with no baseline — new, or silent for a month — sits
+bounded cap, and credits criticism (the concern share, and any rise in it
+over the baseline) the same way; a narrative with no baseline — new, or silent for a month — sits
 at that cap, because something appearing from nothing is the signal to
 surface. Copy states the trajectory in words ("3.2× its four-week average of
 6 a week", "first evidence this week", "resurfacing after no evidence in the

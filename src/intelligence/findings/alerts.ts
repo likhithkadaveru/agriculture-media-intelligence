@@ -161,13 +161,24 @@ export async function runAlertStage(
   });
 
   for (const { finding, narrative } of ordered) {
-    const stance = narrative.stanceSummary;
-    const total = Object.values(stance).reduce((a, b) => a + b, 0);
-    const criticalShare = total === 0 ? 0 : (stance["critical"] ?? 0) / total;
-    const supportiveShare = total === 0 ? 0 : (stance["supportive"] ?? 0) / total;
-
-    // Same test as the command screen's brief: good news is not an alert.
-    const unfavourable = !(supportiveShare >= SUPPORTIVE_SHARE && criticalShare < CRITICAL_SHARE);
+    /*
+     * Same test as the command screen's brief: good news is not an alert,
+     * and neither is neutral coverage. The finding stage classed the week's
+     * stance; findings from before that existed fall back to lifetime stance.
+     */
+    const c = finding.components as { signal?: string; concernShare?: number };
+    let unfavourable: boolean;
+    let criticalShare: number;
+    if (c.signal) {
+      unfavourable = c.signal === "concern" || c.signal === "escalating";
+      criticalShare = c.concernShare ?? 0;
+    } else {
+      const stance = narrative.stanceSummary;
+      const total = Object.values(stance).reduce((a, b) => a + b, 0);
+      criticalShare = total === 0 ? 0 : (stance["critical"] ?? 0) / total;
+      const supportiveShare = total === 0 ? 0 : (stance["supportive"] ?? 0) / total;
+      unfavourable = !(supportiveShare >= SUPPORTIVE_SHARE && criticalShare < CRITICAL_SHARE);
+    }
     const urgent = urgentEvents.get(narrative.id);
     // An urgent event overrides the stance test entirely.
     if (!urgent && (!unfavourable || criticalShare === 0)) continue;

@@ -40,8 +40,18 @@ import {
   trajectoryOf,
 } from "./trajectory";
 
+import {
+  classifySignal,
+  describeStance,
+  stanceContribution,
+  stanceShares,
+  type Signal,
+} from "./stance";
+
 export { BASELINE_WEEKS, RISING_FACTOR, WINDOW_DAYS, describeGrowth, trajectoryOf } from "./trajectory";
 export type { Trajectory } from "./trajectory";
+export { classifySignal, describeStance, stanceStat } from "./stance";
+export type { Signal } from "./stance";
 
 const DAY = 24 * 3600 * 1000;
 
@@ -72,6 +82,17 @@ export interface FindingComponents {
   growthFactor: number | null;
   /** Everything the narrative has ever gathered, for context only. */
   lifetimeMentionCount: number;
+  /** Stance counts inside the window, and over the baseline weeks. */
+  stanceMix: Record<string, number>;
+  baselineStanceMix: Record<string, number>;
+  /** Items in the window that carry any stance. */
+  stanceCarrying: number;
+  /** (critical + mixed) ÷ stanceCarrying, this week and over the baseline. */
+  concernShare: number;
+  baselineConcernShare: number | null;
+  supportiveShare: number;
+  /** What the week's stance says — see stance.ts for the rules. */
+  signal: Signal;
 }
 
 /**
@@ -96,7 +117,8 @@ export function rankScore(c: FindingComponents): number {
     (c.divergenceObserved ? 4 : 0) +
     (c.governmentRelevant ? 2 : 0) +
     c.farmerOriginatedShare * 3 +
-    growthContribution(c)
+    growthContribution(c) +
+    stanceContribution(c)
   ) * c.seasonalMultiplier;
 }
 
@@ -216,10 +238,13 @@ export async function runFindingStage(
     if (canonical.length === 0) continue;
 
     const lifetimeCanonical = linked.filter((x) => !isDuplicate(x));
-    const baselineCount = lifetimeCanonical.filter(({ mention }) => {
+    const baseline = lifetimeCanonical.filter(({ mention }) => {
       const t = evidenceTime(mention);
       return t > baselineStart && t <= windowStart;
-    }).length;
+    });
+    const baselineCount = baseline.length;
+    const baselineStanceMix: Record<string, number> = {};
+    for (const { mention } of baseline) if (mention.stance) increment(baselineStanceMix, mention.stance);
     const baselineWeeklyRate = baselineCount / BASELINE_WEEKS;
     const growthFactor = baselineCount === 0 ? null : canonical.length / baselineWeeklyRate;
 
@@ -275,6 +300,23 @@ export async function runFindingStage(
       publicTotal === 0 ? 0 : (publicStances["critical"] ?? 0) / publicTotal;
     const divergenceObserved = officialSupportive && publicCriticalShare >= 0.5;
 
+    const week = stanceShares(stanceSummary);
+    const base = stanceShares(baselineStanceMix);
+    const stanceInputs = {
+      stanceCarrying: week.total,
+      concernShare: week.concernShare,
+      supportiveShare: week.supportiveShare,
+      baselineConcernShare: base.total === 0 ? null : base.concernShare,
+    };
+    const signal = classifySignal(stanceInputs);
+    /*
+     * A pile of neutral reporting is coverage, not a signal. It stays on the
+     * narrative page and in the Watchlist tab, which already says "reported
+     * without praise or blame"; it no longer gets a card, a rank, a seasonal
+     * warning or an alert.
+     */
+    if (signal === "coverage") continue;
+
     const components: FindingComponents = {
       mentionCount: canonical.length,
       independentVoices: authorKeys.size,
@@ -296,6 +338,10 @@ export async function runFindingStage(
       baselineWeeklyRate,
       growthFactor,
       lifetimeMentionCount: lifetimeCanonical.length,
+      stanceMix: stanceSummary,
+      baselineStanceMix,
+      ...stanceInputs,
+      signal,
     };
 
     // Thresholds for finding categories — deliberately simple and legible,
@@ -429,6 +475,15 @@ function composeCopy(
   const voicesPhrase = `${c.independentVoices} independent voices across ${c.sourceTypeCount} source types`;
   const trajectory = trajectoryOf(c);
   const growth = describeGrowth(c);
+  const stance = describeStance(c);
+  const reportVerb =
+    c.signal === "positive"
+      ? "report favourable developments"
+      : c.signal === "escalating"
+        ? "report this topic with criticism rising"
+        : "report similar concerns";
+  const stanceRule =
+    ` Stance: ${stance}; classed as ${c.signal} (a concern needs ≥50% critical or mixed; escalating needs ≥25% and a rise of 20 points on its four-week share; ≥50% supportive with under 25% critical is positive; anything else is coverage and raises no finding).`;
   const windowPhrase = `in the past ${c.windowDays} days`;
   const seasonalNote =
     c.seasonalMultiplier !== 1
@@ -446,7 +501,8 @@ function composeCopy(
       ? `${narrativeTitle}: independent reports diverge from the official position`
       : `${narrativeTitle} ${verb} across ${c.districtCount} districts`;
     const summary = [
-      `${voicesPhrase} report similar concerns ${windowPhrase}, ${growth}`,
+      `${voicesPhrase} ${reportVerb} ${windowPhrase}, ${growth}`,
+      stance,
       c.districtCount > 0 ? `with district-level evidence in ${districtList}` : null,
       c.farmerOriginatedShare > 0
         ? `${Math.round(c.farmerOriginatedShare * 100)}% of voiced items are farmer-originated`
@@ -461,22 +517,27 @@ function composeCopy(
       c.seasonalReason ? `${c.seasonalReason}.` : null,
       c.divergenceObserved
         ? "When independent farmer reports and official positioning diverge, leadership attention and field verification are usually warranted before the gap widens in public discussion."
-        : trajectory === "steady" || trajectory === "falling"
-          ? "Sustained multi-district, multi-source coverage of a service-delivery topic keeps it on the Agriculture Department's operational radar."
-          : "Multi-district, multi-source growth in a service-delivery topic is an early operational signal for the Agriculture Department.",
+        : c.signal === "positive"
+          ? "Favourable multi-district coverage is worth knowing about: it shows what is being credited, and where the same message could be carried further."
+          : c.signal === "escalating"
+            ? "Criticism rising within a topic that was previously reported neutrally is the earliest form of a problem becoming public."
+            : trajectory === "steady" || trajectory === "falling"
+              ? "Sustained multi-district, multi-source criticism of a service-delivery topic keeps it on the Agriculture Department's operational radar."
+              : "Multi-district, multi-source growth in criticism of a service-delivery topic is an early operational signal for the Agriculture Department.",
     ]
       .filter(Boolean)
       .join(" ");
     const reason =
       `Generated because ${windowPhrase} the narrative had ${c.mentionCount} distinct items (duplicates excluded: ${c.duplicatesExcluded}), ${c.districtCount} districts and ${c.sourceTypeCount} source types — thresholds for an emerging signal (≥6 items, ≥2 districts, ≥3 source types, all counted inside the window). ` +
       `This week is ${growth}; ${c.lifetimeMentionCount} items in total sit on the narrative page, and older ones do not count here.` +
+      stanceRule +
       seasonalNote;
     return { headline, summary, whyItMatters, reason };
   }
 
   const headline = `${narrativeTitle}: early signals worth watching`;
   const summary =
-    `${voicesPhrase} ${windowPhrase}, ${growth}` +
+    `${voicesPhrase} ${reportVerb} ${windowPhrase}, ${growth}; ${stance}` +
     (c.districtCount > 0 ? `, currently concentrated in ${districtList}` : "") +
     ". Volume is below the emerging-signal threshold.";
   const whyItMatters = [
@@ -488,6 +549,7 @@ function composeCopy(
   const reason =
     `Generated as a watch item: ${c.mentionCount} distinct items ${windowPhrase} (≥2 required), below the emerging thresholds. ` +
     `This week is ${growth}; ${c.lifetimeMentionCount} items in total sit on the narrative page.` +
+    stanceRule +
     seasonalNote;
   return { headline, summary, whyItMatters, reason };
 }

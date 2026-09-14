@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { BriefItem, CoverageCounts, CoverageItem, MediaItem } from "@/db/queries";
 import type { FindingComponents } from "@/intelligence/findings/stage";
 import { BASELINE_WEEKS, trajectoryStat } from "@/intelligence/findings/trajectory";
+import { stanceStat } from "@/intelligence/findings/stance";
 import type { CoverageDistrict } from "@/components/StateMap";
 import { StateMap } from "@/components/StateMap";
 import { MediaCarousel } from "@/components/MediaCarousel";
@@ -413,6 +414,13 @@ function LeadItem({
             detail={trajectoryStat(components).detail}
           />
         )}
+        {components?.signal && components.signal !== "positive" && (
+          <LeadStat
+            label="Critical this week"
+            value={stanceStat(components).value}
+            detail={stanceStat(components).detail}
+          />
+        )}
         {components && (
           <LeadStat label="Source types" value={String(components.sourceTypeCount)} />
         )}
@@ -531,6 +539,9 @@ function ItemRow({
             </span>
             {components?.windowDays && (
               <span>{trajectoryStat(components).value} vs {BASELINE_WEEKS}-week avg</span>
+            )}
+            {components?.signal && components.signal !== "positive" && (
+              <span>{stanceStat(components).value} critical</span>
             )}
             {components && <span>{components.sourceTypeCount} source types</span>}
             {item.districts.length > 0 && <span>{districtSummary(item.districts)}</span>}

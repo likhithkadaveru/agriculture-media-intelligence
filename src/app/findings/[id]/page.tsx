@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getDb } from "@/db/client";
 import { getEnvironmentInfo, getFindingDetail } from "@/db/queries";
 import type { FindingComponents } from "@/intelligence/findings/stage";
+import { describeStance } from "@/intelligence/findings/stance";
 import { SiteHeader } from "@/components/SiteHeader";
 import { CategoryKicker, ConfidenceMeter } from "@/components/badges";
 import { EvidenceCard } from "@/components/EvidenceCard";
@@ -176,6 +177,18 @@ export default async function FindingPage({
                   Divergence is computed from these counts — official voices lean supportive of the
                   government position while a majority of public voices are critical. No opaque
                   score is involved.
+                </p>
+              </div>
+            )}
+
+            {c.signal && (
+              <div>
+                <h3 className="kicker text-ink-faint">Stance this week</h3>
+                <p className="mt-2 text-[13px] leading-relaxed text-ink-secondary">
+                  {describeStance(c)}
+                </p>
+                <p className="mt-1 text-[11.5px] text-ink-faint">
+                  Classed as {c.signal}. Neutral reporting alone raises no finding.
                 </p>
               </div>
             )}
